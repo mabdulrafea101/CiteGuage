@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block main_content %}
+<div class="container my-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+          <i class="fas fa-quote-right me-2 text-primary"></i>
+          My Research Papers
+        </h2>
+        <a href="{% url 'upload_paper' %}" class="btn btn-primary">
+          <i class="fas fa-upload me-2"></i>Upload New Paper
+        </a>
+      </div>
+      
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      
+      <div class="card shadow-sm">
+        <div class="card-body">
+          {% if papers %}
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Citations</th>
+                    <th>Predicted Citations</th>
+                    <th>Upload Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for paper in papers %}
+                    <tr>
+                      <td>{{ paper.title }}</td>
+                      <td><span class="badge bg-secondary">{{ paper.category }}</span></td>
+                      <td>
+                        {% if paper.status == 'draft' %}
+                          <span class="badge bg-warning text-dark">Draft</span>
+                        {% elif paper.status == 'published' %}
+                          <span class="badge bg-success">Published</span>
+                        {% elif paper.status == 'under_review' %}
+                          <span class="badge bg-info">Under Review</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ paper.citation_count }}</td>
+                      <td>
+                        {% if paper.predicted_citations > 0 %}
+                          <span data-bs-toggle="tooltip" title="Confidence: {{ paper.confidence_score|floatformat:2 }}">
+                            {{ paper.predicted_citations }}
+                            <i class="fas fa-info-circle text-muted small"></i>
+                          </span>
+                        {% else %}
+                          <span class="text-muted">Not predicted</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ paper.upload_date|date:"M d, Y" }}</td>
+                      <td>
+                        <div class="btn-group">
+                          <a href="{{ paper.document.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                            <i class="fas fa-file-pdf"></i>
+                          </a>
+                          {% if paper.status == 'draft' %}
+                            <a href="#" class="btn btn-sm btn-outline-success">
+                              <i class="fas fa-edit"></i>
+                            </a>
+                          {% endif %}
+                          <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailsModal{{ paper.id }}">
+                            <i class="fas fa-chart-line"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Details Modal for each paper -->
+                    <div class="modal fade" id="detailsModal{{ paper.id }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ paper.id }}" aria-hidden="true">
+                      <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                          <div class="modal-header bg-light">
+                            <h5 class="modal-title" id="detailsModalLabel{{ paper.id }}">{{ paper.title }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <div class="modal-body">
+                            <div class="row mb-3">
+                              <div class="col-md-6">
+                                <h6>Abstract</h6>
+                                <p class="text-muted">{{ paper.abstract|truncatewords:50 }}</p>
+                              </div>
+                              <div class="col-md-6">
+                                <h6>Authors</h6>
+                                <p class="text-muted">{{ paper.authors }}</p>
+                                <h6>Keywords</h6>
+                                <p>
+                                  {% for keyword in paper.keywords.split|slice:":5" %}
+                                    <span class="badge bg-light text-dark me-1">{{ keyword }}</span>
+                                  {% endfor %}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div class="row">
+                              <div class="col-12">
+                                <h6>Citation Predictions</h6>
+                                {% if paper.predictions.all %}
+                                  {% with prediction=paper.predictions.first %}
+                                    <div class="row">
+                                      <div class="col-md-4 text-center mb-3">
+                                        <div class="card h-100">
+                                          <div class="card-body">
+                                            <h3 class="text-primary">{{ prediction.predicted_citations_1y }}</h3>
+                                            <p class="text-muted mb-0">1 Year</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div class="col-md-4 text-center mb-3">
+                                        <div class="card h-100">
+                                          <div class="card-body">
+                                            <h3 class="text-primary">{{ prediction.predicted_citations_3y }}</h3>
+                                            <p class="text-muted mb-0">3 Years</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div class="col-md-4 text-center mb-3">
+                                        <div class="card h-100">
+                                          <div class="card-body">
+                                            <h3 class="text-primary">{{ prediction.predicted_citations_5y }}</h3>
+                                            <p class="text-muted mb-0">5 Years</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {% if prediction.prediction_explanation %}
+                                      <div class="alert alert-info">
+                                        <h6 class="alert-heading">Analysis Insights</h6>
+                                        <p class="mb-0">{{ prediction.prediction_explanation }}</p>
+                                      </div>
+                                    {% endif %}
+                                  {% endwith %}
+                                {% else %}
+                                  <div class="alert alert-warning">
+                                    <p class="mb-0">No citation predictions available for this paper yet.</p>
+                                  </div>
+                                {% endif %}
+                              </div>
+                            </div>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <a href="{{ paper.document.url }}" class="btn btn-primary" target="_blank">
+                              <i class="fas fa-file-pdf me-2"></i>View Document
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <img src="{% static 'images/empty-papers.svg' %}" alt="No papers" class="img-fluid mb-3" style="max-height: 150px;">
+              <h4>You haven't uploaded any papers yet</h4>
+              <p class="text-muted">Upload your research papers to get citation predictions and track their impact.</p>
+              <a href="{% url 'upload_paper' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-upload me-2"></i>Upload Your First Paper
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock main_content %}
+
+{% block custom_js %}
+<script>
+  // Initialize tooltips
+  document.addEventListener("DOMContentLoaded", function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+  });
+</script>
+{% endblock custom_js %}

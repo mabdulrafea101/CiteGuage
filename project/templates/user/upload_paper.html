@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block custom_css %}
+<style>
+  /* Custom styles for the upload paper page */
+  .paper-form .form-control-glass {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+  
+  .paper-form .form-control-glass:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+  }
+  
+  .paper-form .form-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+  }
+  
+  .upload-area {
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .upload-area:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .upload-area.dragover {
+    border-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .help-text {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 0.25rem;
+  }
+</style>
+{% endblock custom_css %}
+
+{% block main_content %}
+  <!-- Add this near the top of your content area -->
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} animate__animated animate__fadeIn">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Main Dashboard Container -->
+  <div class="dashboard-container">
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar -->
+        <div class="col-xl-2 col-lg-3 d-none d-lg-block">
+          <div class="sidebar">
+            <a href="{% url 'dashboard' %}" class="sidebar-item">
+              <i class="fas fa-home"></i>Overview
+            </a>
+            <a href="{% url 'upload_paper' %}" class="sidebar-item active">
+              <i class="fas fa-upload"></i>Upload Paper
+            </a>
+            <a href="{% url 'my_papers' %}" class="sidebar-item">
+              <i class="fas fa-quote-right"></i>My Papers
+            </a>
+            <a href="#predictions" class="sidebar-item">
+              <i class="fas fa-brain me-1"></i>Predictions
+            </a>
+            <a href="#trending" class="sidebar-item">
+              <i class="fas fa-fire"></i>Trending Papers
+            </a>
+            <a href="#collaboration" class="sidebar-item">
+              <i class="fas fa-users"></i>Collaborations
+            </a>
+            <a href="#reports" class="sidebar-item">
+              <i class="fas fa-file-alt"></i>Reports
+            </a>
+          </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-xl-10 col-lg-9">
+          <div class="p-4">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h1 class="text-white mb-1">Upload Research Paper</h1>
+                <p class="text-glass-muted mb-0">
+                  Share your work and get citation predictions based on your research metrics.
+                </p>
+              </div>
+              <a href="{% url 'my_papers' %}" class="btn btn-primary-glass">
+                <i class="fas fa-list me-2"></i>My Papers
+              </a>
+            </div>
+            
+            <!-- Upload Paper Form -->
+            <div class="row">
+              <div class="col-12">
+                <div class="glass-card">
+                  <form method="post" enctype="multipart/form-data" class="paper-form">
+                    {% csrf_token %}
+                    
+                    <!-- Paper Document Upload -->
+                    <div class="mb-4">
+                      <h5 class="text-white mb-3">
+                        <i class="fas fa-file-upload me-2"></i>Paper Document
+                      </h5>
+                      <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-glass-muted mb-3"></i>
+                        <h6 class="text-white">Drag & Drop your paper here</h6>
+                        <p class="text-glass-muted mb-3">or click to browse files</p>
+                        <div class="input-group mb-3">
+                          <label class="input-group-text btn-secondary-glass" for="{{ form.document.id_for_label }}">
+                            <i class="fas fa-folder-open me-2"></i>
+                          </label>
+                          {{ form.document }}
+                        </div>
+                        {% if form.document.errors %}
+                          <div class="invalid-feedback d-block">
+                            {% for error in form.document.errors %}
+                              {{ error }}
+                            {% endfor %}
+                          </div>
+                        {% endif %}
+                        <div class="help-text">Supported formats: PDF, DOC, DOCX (Max size: 10MB)</div>
+                      </div>
+                    </div>
+                    
+                    <!-- Paper Details -->
+                    <div class="mb-4">
+                      <h5 class="text-white mb-3">
+                        <i class="fas fa-info-circle me-2"></i>Paper Details
+                      </h5>
+                      
+                      <div class="row">
+                        <!-- Paper Title -->
+                        <div class="col-lg-6 mb-3">
+                          <label for="{{ form.title.id_for_label }}" class="form-label">Paper Title*</label>
+                          {{ form.title }}
+                          {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.title.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                        
+                        <!-- Category -->
+                        <div class="col-lg-6 mb-3">
+                          <label for="{{ form.category.id_for_label }}" class="form-label">Category*</label>
+                          {{ form.category }}
+                          {% if form.category.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.category.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="col-lg-6 mb-3">
+                          <label for="{{ form.status.id_for_label }}" class="form-label">Status</label>
+                          {{ form.status }}
+                          {% if form.status.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.status.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                        
+                        <!-- Publication Date -->
+                        <div class="col-lg-6 mb-3">
+                          <label for="{{ form.publication_date.id_for_label }}" class="form-label">Publication Date (if published)</label>
+                          {{ form.publication_date }}
+                          {% if form.publication_date.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.publication_date.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                        
+                        <!-- Co-Authors -->
+                        <div class="col-12 mb-3">
+                          <label for="{{ form.authors.id_for_label }}" class="form-label">Co-Authors</label>
+                          {{ form.authors }}
+                          {% if form.authors.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.authors.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                          <div class="help-text">Enter co-author names separated by commas (your name will be added automatically)</div>
+                        </div>
+                        
+                        <!-- Keywords -->
+                        <div class="col-12 mb-3">
+                          <label for="{{ form.keywords.id_for_label }}" class="form-label">Keywords</label>
+                          {{ form.keywords }}
+                          {% if form.keywords.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.keywords.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                          <div class="help-text">Enter keywords separated by commas (e.g., machine learning, neural networks)</div>
+                        </div>
+                        
+                        <!-- Abstract -->
+                        <div class="col-12 mb-3">
+                          <label for="{{ form.abstract.id_for_label }}" class="form-label">Abstract*</label>
+                          {{ form.abstract }}
+                          {% if form.abstract.errors %}
+                            <div class="invalid-feedback d-block">
+                              {% for error in form.abstract.errors %}
+                                {{ error }}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between">
+                      <a href="{% url 'dashboard' %}" class="btn btn-secondary-glass">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                      </a>
+                      <div>
+                        <button type="submit" name="save_draft" class="btn btn-secondary-glass me-2">
+                          <i class="fas fa-save me-2"></i>Save as Draft
+                        </button>
+                        <button type="submit" class="btn btn-primary-glass">
+                          <i class="fas fa-upload me-2"></i>Upload Paper
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Citation Tips Card -->
+            <div class="row mt-4">
+              <div class="col-12">
+                <div class="glass-card">
+                  <h5 class="text-white mb-3">
+                    <i class="fas fa-lightbulb me-2"></i>Tips for Higher Citations
+                  </h5>
+                  <div class="row">
+                    <div class="col-md-4 mb-3">
+                      <div class="d-flex">
+                        <div class="text-primary me-3">
+                          <i class="fas fa-search fa-2x"></i>
+                        </div>
+                        <div>
+                          <h6 class="text-white">Optimized Title</h6>
+                          <p class="text-glass-muted small mb-0">
+                            Use descriptive, keyword-rich titles that clearly state your paper's focus.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                      <div class="d-flex">
+                        <div class="text-primary me-3">
+                          <i class="fas fa-users fa-2x"></i>
+                        </div>
+                        <div>
+                          <h6 class="text-white">Collaboration</h6>
+                          <p class="text-glass-muted small mb-0">
+                            Papers with international co-authors often receive more citations.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                      <div class="d-flex">
+                        <div class="text-primary me-3">
+                          <i class="fas fa-share-alt fa-2x"></i>
+                        </div>
+                        <div>
+                          <h6 class="text-white">Share Widely</h6>
+                          <p class="text-glass-muted small mb-0">
+                            Promote your paper on academic platforms and social media.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock main_content %}
+
+{% block custom_js %}
+<script>
+  // Custom JavaScript for the upload paper page
+  document.addEventListener("DOMContentLoaded", function () {
+    console.log("Upload paper page loaded successfully!");
+    
+    // Drag and drop functionality
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('{{ form.document.id_for_label }}');
+    
+    if (uploadArea && fileInput) {
+      uploadArea.addEventListener('click', function() {
+        fileInput.click();
+      });
+      
+      fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+          const fileName = this.files[0].name;
+          uploadArea.querySelector('h6').textContent = "Selected File: " + fileName;
+          uploadArea.querySelector('p').textContent = "Click to change file";
+        }
+      });
+      
+      // Drag and drop events
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+      });
+      
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+      });
+      
+      ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+      });
+      
+      function highlight() {
+        uploadArea.classList.add('dragover');
+      }
+      
+      function unhighlight() {
+        uploadArea.classList.remove('dragover');
+      }
+      
+      uploadArea.addEventListener('drop', handleDrop, false);
+      
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+          fileInput.files = files;
+          const fileName = files[0].name;
+          uploadArea.querySelector('h6').textContent = "Selected File: " + fileName;
+          uploadArea.querySelector('p').textContent = "Click to change file";
+        }
+      }
+    }
+    
+    // Form validation
+    const form = document.querySelector('.paper-form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        let valid = true;
+        
+        // Check required fields
+        const requiredFields = ['title', 'category', 'abstract', 'document'];
+        requiredFields.forEach(field => {
+          const input = form.querySelector(`[name="${field}"]`);
+          if (input && !input.value.trim()) {
+            input.classList.add('is-invalid');
+            valid = false;
+          } else if (input) {
+            input.classList.remove('is-invalid');
+          }
+        });
+        
+        if (!valid) {
+          e.preventDefault();
+          alert('Please fill in all required fields.');
+        }
+      });
+    }
+  });
+</script>
+{% endblock custom_js %}

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block main_content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-10">
+      <div class="card border-0 shadow-sm animate__animated animate__fadeIn">
+        <div class="card-header bg-white py-3">
+          <h4 class="mb-0"><i class="fas fa-user-edit me-2"></i>Edit Your Profile</h4>
+        </div>
+        <div class="card-body p-4">
+          
+          <!-- Display Django messages if any -->
+          {% if messages %}
+            <div class="messages mb-4">
+              {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} animate__animated animate__fadeIn">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+          
+          <form method="post" enctype="multipart/form-data" class="animate__animated animate__fadeInUp">
+            {% csrf_token %}
+            
+            <div class="row mb-4">
+              <div class="col-12 mb-3">
+                <h5>Personal Information</h5>
+                <hr>
+              </div>
+              
+              <!-- Profile Picture -->
+              <div class="col-md-4 mb-4 text-center">
+                <div class="mb-3">
+                  {% if form.instance.profile_picture %}
+                    <img src="{{ form.instance.profile_picture.url }}" alt="Profile Picture" class="img-fluid rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                  {% else %}
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                      <h1>{{ form.instance.first_name|first }}{{ form.instance.last_name|first }}</h1>
+                    </div>
+                  {% endif %}
+                  
+                  <label for="{{ form.profile_picture.id_for_label }}" class="form-label">Profile Picture</label>
+                  {{ form.profile_picture }}
+                  {% if form.profile_picture.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.profile_picture.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="col-md-8">
+                <div class="row">
+                  
+                  <!-- Institution -->
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.institution.id_for_label }}" class="form-label">Institution</label>
+                    {{ form.institution }}
+                    {% if form.institution.errors %}
+                      <div class="invalid-feedback d-block">
+                        {% for error in form.institution.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Department -->
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.department.id_for_label }}" class="form-label">Department</label>
+                    {{ form.department }}
+                    {% if form.department.errors %}
+                      <div class="invalid-feedback d-block">
+                        {% for error in form.department.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Position -->
+                  <div class="col-12 mb-3">
+                    <label for="{{ form.position.id_for_label }}" class="form-label">Academic Position</label>
+                    {{ form.position }}
+                    {% if form.position.errors %}
+                      <div class="invalid-feedback d-block">
+                        {% for error in form.position.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Bio -->
+            <div class="mb-4">
+              <h5>Biography</h5>
+              <hr>
+              <div class="mb-3">
+                <label for="{{ form.bio.id_for_label }}" class="form-label">Bio</label>
+                {{ form.bio }}
+                {% if form.bio.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.bio.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                <div class="form-text">Write a brief professional biography highlighting your research interests and expertise.</div>
+              </div>
+            </div>
+            
+            <!-- Research Interests -->
+            <div class="mb-4">
+              <h5>Research Information</h5>
+              <hr>
+              <div class="mb-3">
+                <label for="{{ form.research_interests.id_for_label }}" class="form-label">Research Interests</label>
+                {{ form.research_interests }}
+                {% if form.research_interests.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.research_interests.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                <div class="form-text">Enter your research interests separated by commas (e.g., Machine Learning, Data Science, Artificial Intelligence)</div>
+              </div>
+            </div>
+            
+            <!-- Professional Profiles -->
+            <div class="mb-4">
+              <h5>Professional Profiles</h5>
+              <hr>
+              <div class="row">
+                <!-- ORCID ID -->
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.orcid_id.id_for_label }}" class="form-label">ORCID ID</label>
+                  {{ form.orcid_id }}
+                  {% if form.orcid_id.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.orcid_id.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  <div class="form-text">Format: 0000-0000-0000-0000</div>
+                </div>
+                
+                <!-- Google Scholar ID -->
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.google_scholar_id.id_for_label }}" class="form-label">Google Scholar ID</label>
+                  {{ form.google_scholar_id }}
+                  {% if form.google_scholar_id.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.google_scholar_id.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <!-- ResearchGate URL -->
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.research_gate_url.id_for_label }}" class="form-label">ResearchGate URL</label>
+                  {{ form.research_gate_url }}
+                  {% if form.research_gate_url.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.research_gate_url.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <!-- Personal Website -->
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.website.id_for_label }}" class="form-label">Personal Website</label>
+                  {{ form.website }}
+                  {% if form.website.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.website.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="d-flex justify-content-between mt-4">
+              <a href="{% url 'researcher_profile' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Profile
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-2"></i>Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock main_content %}

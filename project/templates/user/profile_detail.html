@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Profile - {{ profile.full_name }}{% endblock %}
+
+{% block main_content %}
+<div class="container py-5">
+  <div class="row">
+    <!-- Profile Header -->
+    <div class="col-12 mb-4">
+      <div class="card border-0 shadow-sm animate__animated animate__fadeIn">
+        <div class="card-body p-4">
+          <div class="row align-items-center">
+            <div class="col-md-3 text-center mb-3 mb-md-0">
+              {% if profile.profile_picture %}
+                <img src="{{ profile.profile_picture.url }}" alt="{{ profile.full_name }}" class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+              {% else %}
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                  <h1>{{ profile.first_name|first }}{{ profile.last_name|first }}</h1>
+                </div>
+              {% endif %}
+            </div>
+            <div class="col-md-9">
+              <h1 class="mb-1">{{ profile.full_name }}</h1>
+              <p class="text-muted mb-2">{{ profile.position }} at {{ profile.institution }}</p>
+              <p class="mb-3">{{ profile.department }}</p>
+              
+              {% if request.user == profile.user %}
+                <a href="{% url 'update_profile' %}" class="btn btn-primary">
+                  <i class="fas fa-edit me-2"></i>Edit Profile
+                </a>
+              {% else %}
+                <a href="{% url 'create_profile' %}" class="btn btn-secondary">
+                  <i class="fas fa-plus me-2"></i>Create Profile
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Profile Details -->
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm mb-4 animate__animated animate__fadeInUp animate__delay-1s">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="fas fa-user-circle me-2"></i>About</h5>
+        </div>
+        <div class="card-body p-4">
+          {% if profile.bio %}
+            <p>{{ profile.bio }}</p>
+          {% else %}
+            <p class="text-muted">No bio information provided yet.</p>
+          {% endif %}
+          
+          <h6 class="mt-4 mb-3">Research Interests</h6>
+          {% if profile.research_interests %}
+            <div class="d-flex flex-wrap gap-2">
+              {% for interest in profile.research_interests.split|dictsort:"0.lower" %}
+                <span class="badge bg-light text-dark p-2">{{ interest }}</span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted">No research interests listed yet.</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Academic Metrics -->
+      <div class="card border-0 shadow-sm mb-4 animate__animated animate__fadeInUp animate__delay-2s">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Academic Metrics</h5>
+        </div>
+        <div class="card-body p-4">
+          <div class="row">
+            <div class="col-6 col-md-3 text-center mb-3">
+              <div class="bg-light rounded p-3">
+                <h3 class="mb-0">{{ profile.h_index }}</h3>
+                <p class="text-muted mb-0">h-index</p>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 text-center mb-3">
+              <div class="bg-light rounded p-3">
+                <h3 class="mb-0">{{ profile.i10_index }}</h3>
+                <p class="text-muted mb-0">i10-index</p>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 text-center mb-3">
+              <div class="bg-light rounded p-3">
+                <h3 class="mb-0">{{ profile.citation_count }}</h3>
+                <p class="text-muted mb-0">Citations</p>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 text-center mb-3">
+              <div class="bg-light rounded p-3">
+                <h3 class="mb-0">{{ profile.total_publications }}</h3>
+                <p class="text-muted mb-0">Publications</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Academic & Contact Info -->
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm mb-4 animate__animated animate__fadeInUp animate__delay-1s">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>Contact & Links</h5>
+        </div>
+        <div class="card-body p-4">
+          <ul class="list-unstyled">
+            <li class="mb-3">
+              <i class="fas fa-envelope me-2 text-primary"></i>
+              <a href="mailto:{{ profile.user.email }}">{{ profile.user.email }}</a>
+            </li>
+            
+            {% if profile.orcid_id %}
+            <li class="mb-3">
+              <i class="fab fa-orcid me-2 text-primary"></i>
+              <a href="https://orcid.org/{{ profile.orcid_id }}" target="_blank">ORCID: {{ profile.orcid_id }}</a>
+            </li>
+            {% endif %}
+            
+            {% if profile.google_scholar_id %}
+            <li class="mb-3">
+              <i class="fas fa-graduation-cap me-2 text-primary"></i>
+              <a href="https://scholar.google.com/citations?user={{ profile.google_scholar_id }}" target="_blank">Google Scholar</a>
+            </li>
+            {% endif %}
+            
+            {% if profile.research_gate_url %}
+            <li class="mb-3">
+              <i class="fab fa-researchgate me-2 text-primary"></i>
+              <a href="{{ profile.research_gate_url }}" target="_blank">ResearchGate</a>
+            </li>
+            {% endif %}
+            
+            {% if profile.website %}
+            <li class="mb-3">
+              <i class="fas fa-globe me-2 text-primary"></i>
+              <a href="{{ profile.website }}" target="_blank">Personal Website</a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock main_content %}

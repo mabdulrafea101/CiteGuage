@@ -1,0 +1,546 @@
+
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+
+body {
+font-family: "Poppins", sans-serif;
+min-height: 100vh;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+position: relative;
+overflow-x: hidden;
+}
+
+/* ===== ANIMATED BACKGROUND ===== */
+.bg-animation {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+overflow: hidden;
+z-index: 1;
+}
+
+.particle {
+position: absolute;
+background: rgba(255, 255, 255, 0.1);
+border-radius: 50%;
+animation: float 6s ease-in-out infinite;
+transition: all 0.3s ease;
+}
+
+.particle:nth-child(1) {
+width: 80px;
+height: 80px;
+top: 20%;
+left: 10%;
+animation-delay: 0s;
+}
+.particle:nth-child(2) {
+width: 60px;
+height: 60px;
+top: 60%;
+left: 70%;
+animation-delay: 2s;
+}
+.particle:nth-child(3) {
+width: 100px;
+height: 100px;
+top: 40%;
+left: 80%;
+animation-delay: 4s;
+}
+.particle:nth-child(4) {
+width: 40px;
+height: 40px;
+top: 80%;
+left: 20%;
+animation-delay: 1s;
+}
+.particle:nth-child(5) {
+width: 70px;
+height: 70px;
+top: 10%;
+left: 60%;
+animation-delay: 3s;
+}
+.particle:nth-child(6) {
+width: 90px;
+height: 90px;
+top: 70%;
+left: 5%;
+animation-delay: 5s;
+}
+
+@keyframes float {
+0%,
+100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.7;
+}
+50% {
+    transform: translateY(-20px) rotate(180deg);
+    opacity: 1;
+}
+}
+
+/* ===== DASHBOARD SPECIFIC STYLES ===== */
+.dashboard-container {
+position: relative;
+z-index: 10;
+min-height: 100vh;
+padding: 0;
+}
+
+/* Navigation */
+/* .navbar-glass {
+background: rgba(255, 255, 255, 0.15);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+padding: 1rem 0;
+} */
+
+.navbar-brand {
+font-size: 1.8rem;
+font-weight: 700;
+color: white !important;
+text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.nav-link {
+color: rgba(255, 255, 255, 0.9) !important;
+font-weight: 500;
+transition: all 0.3s ease;
+padding: 0.5rem 1rem !important;
+border-radius: 10px;
+margin: 0 0.2rem;
+}
+
+.nav-link:hover,
+.nav-link.active {
+color: white !important;
+background: rgba(255, 255, 255, 0.1);
+transform: translateY(-2px);
+}
+
+.dropdown-menu {
+background: rgba(255, 255, 255, 0.15);
+backdrop-filter: blur(20px);
+border: 1px solid rgba(255, 255, 255, 0.2);
+border-radius: 15px;
+z-index: 1050;
+position: absolute;
+}
+
+.navbar-glass {
+background: rgba(255, 255, 255, 0.15);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+padding: 1rem 0;
+position: relative;
+z-index: 1000;
+}
+
+
+
+.dropdown-item {
+color: rgba(255, 255, 255, 0.9);
+transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+background: rgba(255, 255, 255, 0.1);
+color: white;
+}
+
+/* Sidebar */
+.sidebar {
+background: rgba(255, 255, 255, 0.1);
+backdrop-filter: blur(20px);
+border-right: 1px solid rgba(255, 255, 255, 0.2);
+min-height: calc(100vh - 76px);
+padding: 2rem 0;
+}
+
+.sidebar-item {
+display: block;
+color: rgba(255, 255, 255, 0.9);
+text-decoration: none;
+padding: 1rem 1.5rem;
+transition: all 0.3s ease;
+border-radius: 0 25px 25px 0;
+margin: 0.2rem 0;
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+background: rgba(255, 255, 255, 0.15);
+color: white;
+transform: translateX(10px);
+}
+
+.sidebar-item i {
+width: 20px;
+margin-right: 10px;
+}
+
+/* Glass Cards */
+.glass-card {
+background: rgba(255, 255, 255, 0.15);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border-radius: 20px;
+border: 1px solid rgba(255, 255, 255, 0.2);
+box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+padding: 1.5rem;
+transition: all 0.3s ease;
+margin-bottom: 1.5rem;
+}
+
+.glass-card:hover {
+transform: translateY(-5px);
+box-shadow: 0 35px 55px rgba(0, 0, 0, 0.15);
+}
+
+.glass-card-small {
+background: rgba(255, 255, 255, 0.1);
+backdrop-filter: blur(15px);
+border-radius: 15px;
+border: 1px solid rgba(255, 255, 255, 0.2);
+box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+padding: 1.5rem;
+transition: all 0.3s ease;
+margin-bottom: 1rem;
+}
+
+.glass-card-small:hover {
+transform: translateY(-3px);
+box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Stats Cards */
+.stat-card {
+text-align: center;
+color: white;
+}
+
+.stat-number {
+font-size: 2.5rem;
+font-weight: 700;
+margin-bottom: 0.5rem;
+background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
+
+.stat-label {
+color: rgba(255, 255, 255, 0.8);
+font-size: 0.9rem;
+font-weight: 500;
+}
+
+.stat-change {
+font-size: 0.8rem;
+margin-top: 0.5rem;
+}
+
+.stat-increase {
+color: #2ed573;
+}
+
+.stat-decrease {
+color: #ff4757;
+}
+
+/* Buttons */
+.btn-primary-glass {
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+border: none;
+border-radius: 15px;
+color: white;
+font-weight: 600;
+padding: 0.75rem 1.5rem;
+transition: all 0.3s ease;
+position: relative;
+overflow: hidden;
+}
+
+.btn-primary-glass:hover {
+transform: translateY(-2px);
+box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary-glass {
+background: rgba(255, 255, 255, 0.1);
+border: 2px solid rgba(255, 255, 255, 0.3);
+border-radius: 15px;
+color: white;
+font-weight: 600;
+padding: 0.75rem 1.5rem;
+transition: all 0.3s ease;
+backdrop-filter: blur(10px);
+}
+
+.btn-secondary-glass:hover {
+background: rgba(255, 255, 255, 0.2);
+border-color: rgba(255, 255, 255, 0.5);
+transform: translateY(-2px);
+color: white;
+}
+
+/* Forms */
+.form-control-glass {
+background: rgba(255, 255, 255, 0.1);
+border: 1px solid rgba(255, 255, 255, 0.2);
+border-radius: 15px;
+color: white;
+backdrop-filter: blur(10px);
+transition: all 0.3s ease;
+}
+
+.form-control-glass:focus {
+background: rgba(255, 255, 255, 0.2);
+border-color: rgba(255, 255, 255, 0.4);
+box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+color: white;
+}
+
+.form-control-glass::placeholder {
+color: rgba(255, 255, 255, 0.7);
+}
+
+/* Tables */
+.table-glass {
+background: rgba(255, 255, 255, 0.05);
+border-radius: 15px;
+overflow: hidden;
+}
+
+.table-glass th {
+background: rgba(255, 255, 255, 0.1);
+color: white;
+font-weight: 600;
+border: none;
+padding: 1rem;
+}
+
+.table-glass td {
+color: rgba(255, 255, 255, 0.9);
+border: none;
+padding: 1rem;
+border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.table-glass tbody tr:hover {
+background: rgba(255, 255, 255, 0.05);
+}
+
+/* Text Colors */
+.text-glass {
+color: rgba(255, 255, 255, 0.9);
+}
+
+.text-glass-muted {
+color: rgba(255, 255, 255, 0.7);
+}
+
+.text-white {
+color: white !important;
+}
+
+/* Chart Container */
+.chart-container {
+position: relative;
+height: 300px;
+background: rgba(255, 255, 255, 0.05);
+border-radius: 15px;
+padding: 1rem;
+}
+
+/* Prediction Panel */
+.prediction-panel {
+background: linear-gradient(
+    135deg,
+    rgba(46, 213, 115, 0.2) 0%,
+    rgba(0, 123, 255, 0.2) 100%
+);
+border: 1px solid rgba(46, 213, 115, 0.3);
+}
+
+.prediction-score {
+font-size: 3rem;
+font-weight: 700;
+color: #2ed573;
+text-shadow: 0 0 20px rgba(46, 213, 115, 0.5);
+}
+
+/* Upload Area */
+.upload-area {
+border: 2px dashed rgba(255, 255, 255, 0.3);
+border-radius: 15px;
+padding: 3rem;
+text-align: center;
+transition: all 0.3s ease;
+cursor: pointer;
+}
+
+.upload-area:hover {
+border-color: rgba(255, 255, 255, 0.5);
+background: rgba(255, 255, 255, 0.05);
+}
+
+.upload-area.dragover {
+border-color: #2ed573;
+background: rgba(46, 213, 115, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+.sidebar {
+    display: none;
+}
+
+.stat-number {
+    font-size: 2rem;
+}
+
+.glass-card {
+    margin: 0.5rem;
+    padding: 1rem;
+}
+}
+
+/* Loading States */
+.loading {
+position: relative;
+pointer-events: none;
+}
+
+.loading::after {
+content: "";
+position: absolute;
+top: 50%;
+left: 50%;
+width: 20px;
+height: 20px;
+margin: -10px 0 0 -10px;
+border: 2px solid rgba(255, 255, 255, 0.3);
+border-top: 2px solid white;
+border-radius: 50%;
+animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+0% {
+    transform: rotate(0deg);
+}
+100% {
+    transform: rotate(360deg);
+}
+}
+
+/* Badge Styles */
+.badge-glass {
+background: rgba(255, 255, 255, 0.2);
+color: white;
+border-radius: 20px;
+padding: 0.5rem 1rem;
+}
+
+.badge-success {
+background: rgba(46, 213, 115, 0.2);
+color: #2ed573;
+border: 1px solid rgba(46, 213, 115, 0.3);
+}
+
+.badge-warning {
+background: rgba(255, 165, 2, 0.2);
+color: #ffa502;
+border: 1px solid rgba(255, 165, 2, 0.3);
+}
+
+.badge-danger {
+background: rgba(255, 71, 87, 0.2);
+color: #ff4757;
+border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.upload-area.dragover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.upload-area .btn {
+  margin-top: 10px;
+}
+
+/* Add to your CSS file or inside a <style> tag in your my_papers.html */
+.glass-table {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  color: white;
+}
+
+.glass-table thead th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.glass-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* DataTables Custom Styling */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_processing,
+.dataTables_wrapper .dataTables_paginate {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 5px;
+  padding: 5px 10px;
+}
