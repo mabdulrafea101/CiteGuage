@@ -5,8 +5,8 @@ from django.urls import reverse_lazy
 from django.contrib.auth import authenticate, login as auth_login
 from django.contrib import messages
 
-from .models import CustomUser, ResearcherProfile, ResearchPaper
-from .forms import CustomUserCreationForm, ResearcherProfileForm, ResearchPaperForm, CustomAuthenticationForm
+from .models import CustomUser, ResearcherProfile, Paper
+from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm
 # In your views.py file
 
 from django.http import JsonResponse
@@ -104,13 +104,13 @@ class ResearcherProfileDetailView(LoginRequiredMixin, DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['papers'] = ResearchPaper.objects.filter(researcher=self.get_object())
+        context['papers'] = Paper.objects.filter(researcher=self.get_object())
         return context
 
 
-class ResearchPaperCreateView(LoginRequiredMixin, CreateView):
-    model = ResearchPaper
-    form_class = ResearchPaperForm
+class PaperCreateView(LoginRequiredMixin, CreateView):
+    model = Paper
+    form_class = PaperForm
     template_name = 'user/upload_paper.html'
     success_url = reverse_lazy('my_papers')
     
@@ -125,17 +125,17 @@ class ResearchPaperCreateView(LoginRequiredMixin, CreateView):
             return redirect('create_profile')
 
 
-class ResearchPaperListView(LoginRequiredMixin, ListView):
-    model = ResearchPaper
+class PaperListView(LoginRequiredMixin, ListView):
+    model = Paper
     template_name = 'user/my_papers.html'
     context_object_name = 'papers'
     
     def get_queryset(self):
         try:
             profile = self.request.user.researcher_profile
-            return ResearchPaper.objects.filter(researcher=profile)
+            return Paper.objects.filter(researcher=profile)
         except ResearcherProfile.DoesNotExist:
-            return ResearchPaper.objects.none()
+            return Paper.objects.none()
 
 
 
@@ -163,7 +163,7 @@ def upload_paper(request):
                 return JsonResponse({'success': False, 'message': 'Please upload a document file.'})
             
             # Create new paper record
-            paper = ResearchPaper(
+            paper = Paper(
                 researcher=profile,
                 title=title,
                 category=category,

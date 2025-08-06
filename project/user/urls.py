@@ -27,7 +27,7 @@ urlpatterns = [
     path('profile/update/', views.ResearcherProfileUpdateView.as_view(), name='update_profile'),
     
     # Research paper URLs
-    path('papers/', views.ResearchPaperListView.as_view(), name='my_papers'),
-    path('papers/upload/', views.ResearchPaperCreateView.as_view(), name='upload_my_paper'),
+    path('papers/', views.PaperListView.as_view(), name='my_papers'),
+    path('papers/upload/', views.PaperCreateView.as_view(), name='upload_my_paper'),
     path('papers/upload/ajax/', views.upload_paper, name='upload_paper'),
 ]
