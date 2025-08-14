@@ -10,8 +10,8 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
 from .models import CustomUser, ResearcherProfile, Paper
-from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm, WOSBestSearchForm
-from .WOS_utils import search_papers_wos, get_best_papers
+from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
+from .WOS_utils import search_papers_wos
 
 
 # ----------------- SIGNUP -----------------
