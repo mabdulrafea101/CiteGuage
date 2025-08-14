@@ -142,12 +142,6 @@ class PaperForm(forms.ModelForm):
 
 # WOS Form
 
-class PaperSearchForm(forms.Form):
-    title = forms.CharField(
-        label="Search Term",
-        max_length=200,
-        widget=forms.TextInput(attrs={'placeholder': 'Enter keywords'})
-    )
 
 FIELD_CHOICES = [
     ('TS', 'Topic (TS)'),
@@ -175,3 +169,6 @@ class WOSSearchForm(forms.Form):
         max_value=50,
         initial=10
     )
+
+# To search Best Relevant and Cited papers
+

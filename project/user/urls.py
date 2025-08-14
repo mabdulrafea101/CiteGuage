@@ -7,10 +7,9 @@ from .views import (
     ResearcherProfileDetailView,
     PaperCreateView,
     PaperListView,
-    paper_citation_view,
     upload_my_paper,
-    list_papers_view,
-    wos_paper_list_view
+    wos_paper_list_view,
+    wos_best_paper_view
 )
 from django.contrib.auth.views import LogoutView
 
@@ -30,7 +29,6 @@ urlpatterns = [
     path('papers/', PaperListView.as_view(), name='my_papers'),
     path('papers/api/upload/', upload_my_paper, name='upload_my_paper'),  # AJAX/JSON API endpoint
 
-    path("check-citations/", paper_citation_view, name="check_citations"),
-    path("list-papers/", list_papers_view, name="wos_list_papers"),
     path("wos-papers/", wos_paper_list_view, name="wos_papers"),  # List papers from WOS
+    path("wos-best-papers/", wos_best_paper_view, name="wos_best_papers"),  # List best papers from WOS
 ]

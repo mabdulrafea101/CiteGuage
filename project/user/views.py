@@ -1,3 +1,5 @@
+import json
+from pprint import pprint
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -8,8 +10,8 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
 from .models import CustomUser, ResearcherProfile, Paper
-from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, PaperSearchForm, WOSSearchForm
-from .WOS_utils import search_paper_and_citations, list_papers_from_wos, search_papers_wos
+from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm, WOSBestSearchForm
+from .WOS_utils import search_papers_wos, get_best_papers
 
 
 # ----------------- SIGNUP -----------------
@@ -182,76 +184,6 @@ def upload_my_paper(request):
 
 # WOS View API end-points
 
-def paper_citation_view(request):
-    citation_count = None
-    ut = None
-    error_message = None
-
-    if request.method == "POST":
-        form = PaperSearchForm(request.POST)
-        if form.is_valid():
-            title = form.cleaned_data["title"]
-            citation_count, ut = search_paper_and_citations(title)
-
-            if citation_count is None:
-                error_message = "No matching paper found in Web of Science."
-        else:
-            error_message = "Invalid input. Please try again."
-    else:
-        form = PaperSearchForm()
-
-    return render(request, "user/paper_citations.html", {
-        "form": form,
-        "citation_count": citation_count,
-        "ut": ut,
-        "error_message": error_message
-    })
-
-
-def list_papers_view(request):
-    papers = []
-    error_message = None
-
-    if request.method == "POST":
-        form = PaperSearchForm(request.POST)
-        if form.is_valid():
-            query = form.cleaned_data["title"]
-            papers = list_papers_from_wos(query, count=10)
-            if not papers:
-                error_message = "No papers found for your search."
-        else:
-            error_message = "Invalid input."
-    else:
-        form = PaperSearchForm()
-
-    return render(request, "user/list_papers.html", {
-        "form": form,
-        "papers": papers,
-        "error_message": error_message
-    })
-
-
-def wos_paper_list_view(request):
-    papers = []
-    error_message = None
-
-    if request.method == "POST":
-        form = PaperSearchForm(request.POST)
-        if form.is_valid():
-            query = form.cleaned_data["title"]
-            papers = search_papers_wos(query, count=10)
-            if not papers:
-                error_message = "No papers found for your search."
-        else:
-            error_message = "Invalid input."
-    else:
-        form = PaperSearchForm()
-
-    return render(request, "user/wos_paper_list.html", {
-        "form": form,
-        "papers": papers,
-        "error_message": error_message
-    })
 
 
 def wos_paper_list_view(request):
