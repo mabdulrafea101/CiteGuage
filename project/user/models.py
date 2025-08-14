@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 
 # ---------------------------
@@ -86,3 +87,19 @@ class Paper(models.Model):
     @property
     def has_prediction(self):
         return self.predicted_citations_2y is not None
+
+
+
+
+class WOSSearchHistory(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wos_searches')
+    query = models.CharField(max_length=255)
+    search_field = models.CharField(max_length=20)
+    count = models.IntegerField()
+    searched_at = models.DateTimeField(auto_now_add=True)
+    json_file_path = models.CharField(max_length=500, blank=True, null=True)  # Path to saved JSON file
+    # Optionally, you can store the raw JSON data (not recommended for large results)
+    # json_data = models.JSONField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.email} | {self.query} | {self.searched_at.strftime('%Y-%m-%d %H:%M:%S')}"

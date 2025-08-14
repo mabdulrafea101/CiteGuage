@@ -1,5 +1,7 @@
 import json
 from pprint import pprint
+import os
+import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -9,7 +11,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
-from .models import CustomUser, ResearcherProfile, Paper
+from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory
 from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
 from .WOS_utils import search_papers_wos
 
@@ -186,8 +188,39 @@ def upload_my_paper(request):
 
 
 
+# def wos_paper_list_view(request):
+#     papers = []
+#     if request.method == "POST":
+#         form = WOSSearchForm(request.POST)
+#         if form.is_valid():
+#             field = form.cleaned_data["search_field"]
+#             query = form.cleaned_data["query"]
+#             count = form.cleaned_data["count"]
+
+#             papers = search_papers_wos(query=query, count=count, field=field)
+            
+#     else:
+#         form = WOSSearchForm()
+
+#     return render(request, "user/wos_paper_list.html", {"form": form, "papers": papers})
+
+
 def wos_paper_list_view(request):
     papers = []
+    json_file_path = None
+    json_data_to_display = None
+
+    # Check if a specific search is being viewed
+    view_json_id = request.GET.get("view_json")
+    if view_json_id:
+        try:
+            search = WOSSearchHistory.objects.get(id=view_json_id, user=request.user)
+            if search.json_file_path and os.path.exists(search.json_file_path):
+                with open(search.json_file_path, "r", encoding="utf-8") as f:
+                    json_data_to_display = json.load(f)
+        except Exception as e:
+            json_data_to_display = {"error": f"Could not load JSON: {e}"}
+
     if request.method == "POST":
         form = WOSSearchForm(request.POST)
         if form.is_valid():
@@ -196,8 +229,38 @@ def wos_paper_list_view(request):
             count = form.cleaned_data["count"]
 
             papers = search_papers_wos(query=query, count=count, field=field)
-            
+
+            # Save the search result as JSON file
+            date_dir = datetime.datetime.now().strftime("%Y%m%d")
+            raw_dir = os.path.join(os.getcwd(), "json_data", date_dir)
+            os.makedirs(raw_dir, exist_ok=True)
+            file_path = os.path.join(raw_dir, f"records_{datetime.datetime.now().strftime('%H%M%S')}.json")
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(papers, f, indent=4, ensure_ascii=False)
+                json_file_path = file_path
+            except Exception as e:
+                json_file_path = None  # Optionally, handle/log error
+
+            # Save search history
+            if request.user.is_authenticated:
+                WOSSearchHistory.objects.create(
+                    user=request.user,
+                    query=query,
+                    search_field=field,
+                    count=count,
+                    json_file_path=json_file_path
+                )
     else:
         form = WOSSearchForm()
 
-    return render(request, "user/wos_paper_list.html", {"form": form, "papers": papers})
+    search_history = []
+    if request.user.is_authenticated:
+        search_history = WOSSearchHistory.objects.filter(user=request.user).order_by('-searched_at')[:10]
+
+    return render(request, "user/wos_paper_list.html", {
+        "form": form,
+        "papers": papers,
+        "search_history": search_history,
+        "json_data_to_display": json_data_to_display,
+    })

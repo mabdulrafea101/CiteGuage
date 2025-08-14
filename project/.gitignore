@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Django
+db.sqlite3
+*.sqlite3
+*.log
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# VSCode and IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Static and media (user uploads)
+media/
+staticfiles/
+
+# Test/coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+*.cover
+
+# Migrations (optional, if you want to ignore generated migrations)
+# **Uncomment if you want to ignore all migration files**
+# */migrations/
+# !*/migrations/__init__.py
+
+# Data and results
+json_data/
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Compiled files
+*.exe
+*.dll
+*.obj
+*.o
+*.a
+*.lib
+
+# Backup files
+*~
+*.bak
+*.swp
+*.tmp
+
+# Node (if you ever add frontend tooling)
+node_modules/
+
+# Mac system files
+.DS_Store
+
+# Logs
+*.log
+logs/

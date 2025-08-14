@@ -155,19 +155,29 @@ class WOSSearchForm(forms.Form):
     search_field = forms.ChoiceField(
         choices=FIELD_CHOICES,
         label="Search Field",
-        required=True
+        required=True,
+        widget=forms.Select(attrs={
+            "class": "form-control form-control-glass"
+        })
     )
     query = forms.CharField(
         label="Search Query",
         max_length=255,
         required=True,
-        widget=forms.TextInput(attrs={"placeholder": "Enter your search term"})
+        widget=forms.TextInput(attrs={
+            "class": "form-control form-control-glass",
+            "placeholder": "Enter your search term"
+        })
     )
     count = forms.IntegerField(
         label="Number of Results",
         min_value=1,
         max_value=50,
-        initial=10
+        initial=10,
+        widget=forms.NumberInput(attrs={
+            "class": "form-control form-control-glass",
+            "placeholder": "10"
+        })
     )
 
 # To search Best Relevant and Cited papers
