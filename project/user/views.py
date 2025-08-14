@@ -4,15 +4,15 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib.auth import authenticate, login as auth_login
 from django.contrib import messages
-
-from .models import CustomUser, ResearcherProfile, Paper
-from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm
-# In your views.py file
-
 from django.http import JsonResponse
-
 from django.contrib.auth.decorators import login_required
 
+from .models import CustomUser, ResearcherProfile, Paper
+from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, PaperSearchForm, WOSSearchForm
+from .WOS_utils import search_paper_and_citations, list_papers_from_wos, search_papers_wos
+
+
+# ----------------- SIGNUP -----------------
 
 
 class SignUpView(CreateView):
@@ -21,53 +21,51 @@ class SignUpView(CreateView):
     template_name = 'user/signup.html'
     
     def form_valid(self, form):
-        # Save the user
-        response = super().form_valid(form)
-        
-        # Create a basic profile for the user
-        user = self.object
-        ResearcherProfile.objects.create(
-            user=user,
-            first_name=user.first_name,
-            last_name=user.last_name
-        )
-        
-        # Add a success message
-        email = form.cleaned_data.get('email')
-        messages.success(self.request, f'Account created successfully for {email}. Please log in.')
-        
-        return response
+        try:
+            # Save user and also store first/last name from form
+            user = form.save(commit=False)
+            user.first_name = form.cleaned_data.get('first_name', '')
+            user.last_name = form.cleaned_data.get('last_name', '')
+            user.save()
+
+            # Create profile for user (only with fields that exist)
+            ResearcherProfile.objects.create(
+                user=user,
+                institution="",
+                bio=""
+            )
+
+            messages.success(
+                self.request,
+                f'Account created successfully for {user.email}. Please log in.'
+            )
+            return super().form_valid(form)
+
+        except Exception as e:
+            messages.error(self.request, f"Error during signup: {e}")
+            return redirect('signup')
 
 
-
+# ----------------- LOGIN -----------------
 def login_view(request):
-    # If user is already logged in, handle redirect based on user type
     if request.user.is_authenticated:
-        if request.user.is_staff:
-            return redirect('admin:index')  # Redirect to admin panel
-        else:
-            return redirect('dashboard')    # Redirect to researcher dashboard
-        
+        return redirect('dashboard' if not request.user.is_staff else 'admin:index')
+    
     if request.method == 'POST':
         form = CustomAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             auth_login(request, user)
-            messages.success(request, f'Welcome back, {user.first_name if user.first_name else user.email}!')
-            
-            # Redirect based on user type
-            if user.is_staff:
-                return redirect('admin:index')  # Redirect to admin panel
-            else:
-                # Get the next parameter if it exists, otherwise redirect to dashboard
-                next_url = request.GET.get('next', 'dashboard')
-                return redirect(next_url)
+            messages.success(request, f'Welcome back, {user.first_name or user.email}!')
+            return redirect(request.GET.get('next', 'dashboard'))
     else:
         form = CustomAuthenticationForm()
     
     return render(request, 'user/login.html', {'form': form})
 
 
+
+# ----------------- RESEARCHER PROFILE -----------------
 class ResearcherProfileCreateView(LoginRequiredMixin, CreateView):
     model = ResearcherProfile
     form_class = ResearcherProfileForm
@@ -104,10 +102,11 @@ class ResearcherProfileDetailView(LoginRequiredMixin, DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['papers'] = Paper.objects.filter(researcher=self.get_object())
+        context['papers'] = Paper.objects.filter(user=self.get_object().user)
         return context
 
 
+# ----------------- PAPER MANAGEMENT -----------------
 class PaperCreateView(LoginRequiredMixin, CreateView):
     model = Paper
     form_class = PaperForm
@@ -116,13 +115,15 @@ class PaperCreateView(LoginRequiredMixin, CreateView):
     
     def form_valid(self, form):
         try:
-            profile = self.request.user.researcher_profile
-            form.instance.researcher = profile
+            form.instance.researcher = self.request.user.researcher_profile
             messages.success(self.request, 'Your paper has been uploaded successfully!')
             return super().form_valid(form)
         except ResearcherProfile.DoesNotExist:
             messages.error(self.request, 'Please create your researcher profile first.')
             return redirect('create_profile')
+        except Exception as e:
+            messages.error(self.request, f"Error uploading paper: {e}")
+            return redirect('my_papers')
 
 
 class PaperListView(LoginRequiredMixin, ListView):
@@ -132,64 +133,139 @@ class PaperListView(LoginRequiredMixin, ListView):
     
     def get_queryset(self):
         try:
-            profile = self.request.user.researcher_profile
-            return Paper.objects.filter(researcher=profile)
-        except ResearcherProfile.DoesNotExist:
+            return Paper.objects.filter(user=self.request.user)
+        except CustomUser.DoesNotExist:
             return Paper.objects.none()
 
 
-
-
 @login_required
-def upload_paper(request):
-    if request.method == 'POST':
-        try:
-            # Get the researcher profile
-            profile = get_object_or_404(ResearcherProfile, user=request.user)
+def upload_my_paper(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+
+    try:
+        profile = get_object_or_404(ResearcherProfile, user=request.user)
+        title = request.POST.get('title', '').strip()
+        category = request.POST.get('category', '').strip()
+        document = request.FILES.get('document')
+
+        # Validation
+        if not title:
+            return JsonResponse({'success': False, 'message': 'Title is required.'})
+        if not category:
+            return JsonResponse({'success': False, 'message': 'Category is required.'})
+        if not document:
+            return JsonResponse({'success': False, 'message': 'Document is required.'})
+
+        paper = Paper.objects.create(
+    user=profile.user,
+    title=title,
+    abstract="",
+    keywords=keywords or "",
+    publication_year=publication_year
+)
+
+
+
+        return JsonResponse({'success': True, 'message': 'Paper uploaded successfully!', 'paper_id': paper.id})
+
+    except ResearcherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Please create your researcher profile first.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+
+
+
+
+
+# WOS View API end-points
+
+def paper_citation_view(request):
+    citation_count = None
+    ut = None
+    error_message = None
+
+    if request.method == "POST":
+        form = PaperSearchForm(request.POST)
+        if form.is_valid():
+            title = form.cleaned_data["title"]
+            citation_count, ut = search_paper_and_citations(title)
+
+            if citation_count is None:
+                error_message = "No matching paper found in Web of Science."
+        else:
+            error_message = "Invalid input. Please try again."
+    else:
+        form = PaperSearchForm()
+
+    return render(request, "user/paper_citations.html", {
+        "form": form,
+        "citation_count": citation_count,
+        "ut": ut,
+        "error_message": error_message
+    })
+
+
+def list_papers_view(request):
+    papers = []
+    error_message = None
+
+    if request.method == "POST":
+        form = PaperSearchForm(request.POST)
+        if form.is_valid():
+            query = form.cleaned_data["title"]
+            papers = list_papers_from_wos(query, count=10)
+            if not papers:
+                error_message = "No papers found for your search."
+        else:
+            error_message = "Invalid input."
+    else:
+        form = PaperSearchForm()
+
+    return render(request, "user/list_papers.html", {
+        "form": form,
+        "papers": papers,
+        "error_message": error_message
+    })
+
+
+def wos_paper_list_view(request):
+    papers = []
+    error_message = None
+
+    if request.method == "POST":
+        form = PaperSearchForm(request.POST)
+        if form.is_valid():
+            query = form.cleaned_data["title"]
+            papers = search_papers_wos(query, count=10)
+            if not papers:
+                error_message = "No papers found for your search."
+        else:
+            error_message = "Invalid input."
+    else:
+        form = PaperSearchForm()
+
+    return render(request, "user/wos_paper_list.html", {
+        "form": form,
+        "papers": papers,
+        "error_message": error_message
+    })
+
+
+def wos_paper_list_view(request):
+    papers = []
+    if request.method == "POST":
+        form = WOSSearchForm(request.POST)
+        if form.is_valid():
+            field = form.cleaned_data["search_field"]
+            query = form.cleaned_data["query"]
+            count = form.cleaned_data["count"]
+
+            papers = search_papers_wos(query=query, count=count, field=field)
             
-            # Get form data
-            title = request.POST.get('title', '').strip()
-            category = request.POST.get('category', '').strip()
-            document = request.FILES.get('document')
-            
-            # Validate data
-            if not title:
-                return JsonResponse({'success': False, 'message': 'Please provide a title for your paper.'})
-            
-            if not category:
-                return JsonResponse({'success': False, 'message': 'Please select a category for your paper.'})
-            
-            if not document:
-                return JsonResponse({'success': False, 'message': 'Please upload a document file.'})
-            
-            # Create new paper record
-            paper = Paper(
-                researcher=profile,
-                title=title,
-                category=category,
-                document=document,
-                # Set default values for other required fields
-                abstract="",  # You might want to extract this from the document later
-                authors=profile.full_name(),  # Default to the researcher's name
-                status='draft'
-            )
-            paper.save()
-            
-            return JsonResponse({
-                'success': True, 
-                'message': 'Your paper was uploaded successfully!',
-                'paper_id': paper.id
-            })
-            
-        except ResearcherProfile.DoesNotExist:
-            return JsonResponse({
-                'success': False, 
-                'message': 'Please create your researcher profile first.'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False, 
-                'message': f'An error occurred: {str(e)}'
-            })
-    
-    return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+    else:
+        form = WOSSearchForm()
+
+    return render(request, "user/wos_paper_list.html", {"form": form, "papers": papers})

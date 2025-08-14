@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+<h2>Web of Science Paper Search</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Search</button>
+</form>
+
+<hr>
+
+{% if papers %}
+    <h3>Search Results:</h3>
+    <ul>
+        {% for paper in papers %}
+            <li>
+                <strong>{{ paper.title }}</strong><br>
+                UID: {{ paper.uid }}<br>
+                Citations: {{ paper.citations }}
+            </li>
+        {% endfor %}
+    </ul>
+{% elif papers is not None %}
+    <p>No papers found for your search.</p>
+{% endif %}
+
+
+</body>
+</html>

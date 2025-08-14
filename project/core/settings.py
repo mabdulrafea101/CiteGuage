@@ -146,3 +146,6 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Karachi' # Or your desired timezone
 CELERY_ENABLE_UTC = True
+
+# Add your API key here
+WOS_API_KEY = "35b587c027f9797adbcec411cb13e4532ec1fd83"

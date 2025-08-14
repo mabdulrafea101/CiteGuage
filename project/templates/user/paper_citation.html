@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Paper Citation Checker</title>
+</head>
+<body>
+    <h2>Check Paper Citations</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Search</button>
+    </form>
+
+    {% if error_message %}
+        <p style="color: red;">{{ error_message }}</p>
+    {% endif %}
+
+    {% if citation_count is not None %}
+        <p><strong>Citation Count:</strong> {{ citation_count }}</p>
+        <p><strong>UID:</strong> {{ ut }}</p>
+    {% endif %}
+
+</body>
+</html>

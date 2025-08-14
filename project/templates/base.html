@@ -64,12 +64,12 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#citations">
+              <a class="nav-link" href="{% url 'check_citations' %}">
                 <i class="fas fa-quote-right me-1"></i>Citations
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#predictions">
+              <a class="nav-link" href="{% url 'wos_papers' %}">
                 <i class="fas fa-brain me-1"></i>Predictions
               </a>
             </li>
@@ -97,7 +97,7 @@
                   >
                 </li>
                 <li>
-                  <a class="dropdown-item" href="#"
+                  <a class="dropdown-item" href="{% url 'my_papers' %}"
                     ><i class="fas fa-chart-line me-2"></i>My Research</a
                   >
                 </li>

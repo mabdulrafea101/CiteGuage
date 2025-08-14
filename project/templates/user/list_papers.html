@@ -1,0 +1,30 @@
+
+
+<h2>Search Web of Science Papers</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Search</button>
+</form>
+
+{% if error_message %}
+    <p style="color: red;">{{ error_message }}</p>
+{% endif %}
+
+{% if papers %}
+    <table border="1" cellpadding="5">
+        <tr>
+            <th>Title</th>
+            <th>UID</th>
+            <th>Citations</th>
+        </tr>
+        {% for paper in papers %}
+        <tr>
+            <td>{{ paper.title }}</td>
+            <td>{{ paper.uid }}</td>
+            <td>{{ paper.citations }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endif %}
+
