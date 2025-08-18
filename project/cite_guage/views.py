@@ -613,14 +613,14 @@ class DashboardView(LoginRequiredMixin, View):
             
             logger.debug(f"User {request.user.username} - Dashboard data loaded successfully")
             
-            return render(request, 'cite_guage/dashboard.html', {
+            return render(request, 'dashboard.html', {
                 'dashboard_data': dashboard_data['data']
             })
             
         except Exception as e:
             logger.exception(f"User {request.user.username} - Critical error in dashboard view")
             messages.error(request, 'Error loading dashboard.')
-            return render(request, 'cite_guage/dashboard.html', {
+            return render(request, 'dashboard.html', {
                 'dashboard_data': self._get_empty_dashboard_data()
             })
     
