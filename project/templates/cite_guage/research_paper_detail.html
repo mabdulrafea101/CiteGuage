@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block custom_css %}
+  
+{% endblock custom_css %}
+
+
+{% block main_content %}
+<p>{{paper.id}}</p>
+<p>{{paper.filename}}</p>
+<p>{{paper.title}}</p>
+<p>{{paper.abstract}}</p>
+{% for keyword in paper.keywords %}
+  <p>{{keyword}}</p>
+{% endfor %}
+
+
+
+
+
+{% endblock main_content %}
+
+
+{% block custom_js %}
+  
+{% endblock custom_js %}

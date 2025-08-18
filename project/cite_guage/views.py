@@ -6,7 +6,7 @@ import docx
 import re
 
 from django.shortcuts import render, redirect
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.views import View
@@ -711,14 +711,8 @@ class DashboardView(LoginRequiredMixin, View):
             return "0 B"
 
 
-# forms.py (optional - for form validation)
-# from django import forms
-
-# class DocumentUploadForm(forms.Form):
-#     document = forms.FileField(
-#         widget=forms.FileInput(attrs={
-#             'accept': '.pdf,.docx,.txt',
-#             'class': 'form-control'
-#         }),
-#         help_text='Upload PDF, DOCX, or TXT files (max 10MB)'
-#     )
+class ResearchPaperDetail(DetailView):
+    model = ResearchPaper
+    template_name='cite_guage/research_paper_detail.html'
+    context_object_name = 'paper'
+    
