@@ -196,7 +196,10 @@
                                                     {% for paper in dashboard_data.recent_papers %}
                                                     <tr>
                                                         <td><strong class="stat-increase"><a href="{% url 'Research_paper_detail' paper.id %}"> {{ paper.id }}</a> </strong></td>
-                                                        <td><strong>{{ paper.filename }}</strong></td>
+                                                        <td><strong>
+                                                            <a href="{% url 'Research_paper_detail' paper.id %}">{{ paper.filename }}
+                                                                <i class="bi bi-file-earmark-text"></i>
+                                                            </a></strong></td>
                                                         <td>{{ paper.title|truncatechars:50 }}</td>
                                                         <td><span class="badge bg-primary">{{ paper.file_type|upper }}</span></td>
                                                         <td>{{ paper.get_file_size_display }}</td>
