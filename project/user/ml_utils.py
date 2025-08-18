@@ -178,6 +178,38 @@ def predict_from_text(title: str, abstract: str, keywords: str):
     # Transform text to feature vector
     X = _transform_text_to_features(vectorizer, title, abstract, keywords)
 
+    # Check for feature mismatch and pad or truncate if necessary.
+    # This handles cases where the model was trained with additional numerical features
+    # that are not generated from the text inputs.
+    try:
+        expected_features = model.n_features_in_
+        current_features = X.shape[1]
+
+        if current_features != expected_features:
+            logger.warning(
+                "Feature mismatch detected. Input has %d features, model expects %d. "
+                "Attempting to fix shape. This may affect prediction accuracy.",
+                current_features,
+                expected_features
+            )
+            if current_features < expected_features:
+                # Pad with zeros if features are missing
+                if hstack is None or csr_matrix is None:
+                    raise MLModelError("scipy is required to fix feature mismatch but is not installed.")
+                
+                missing_features_count = expected_features - current_features
+                padding = csr_matrix((X.shape[0], missing_features_count), dtype=X.dtype)
+                X = hstack([X, padding])
+                logger.info("Padded input with %d zero-features.", missing_features_count)
+            else:
+                # Truncate if there are too many features
+                X = X[:, :expected_features]
+                logger.info("Truncated input features to %d.", expected_features)
+
+    except AttributeError:
+        # This handles older sklearn models that might not have `n_features_in_`
+        logger.warning("Could not verify feature count; model does not have 'n_features_in_' attribute.")
+
     # Predict (ensure we return a scalar)
     try:
         raw_pred = model.predict(X)

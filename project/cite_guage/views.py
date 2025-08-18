@@ -18,6 +18,7 @@ from django.core.exceptions import ValidationError
 
 from collections import Counter
 from user.models import ResearchPaper
+from user.ml_utils import predict_from_text, MLModelError
 
 # class DashboardView(LoginRequiredMixin, TemplateView):
 #     template_name = 'cite_guage/dashboard.html'
@@ -711,8 +712,53 @@ class DashboardView(LoginRequiredMixin, View):
             return "0 B"
 
 
-class ResearchPaperDetail(DetailView):
+class ResearchPaperDetail(LoginRequiredMixin, DetailView):
     model = ResearchPaper
     template_name='cite_guage/research_paper_detail.html'
     context_object_name = 'paper'
-    
+    login_url = '/user/login/'
+
+    def get_queryset(self):
+        # Ensure users can only see their own papers
+        return ResearchPaper.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle prediction request for the research paper.
+        """
+        self.object = self.get_object()
+        paper = self.object
+        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
+        print(f"INFO: User {request.user.email} requested prediction for paper ID: {paper.id}")
+
+        context = self.get_context_data(object=paper)
+
+        try:
+            # The model has a property to get keywords as a string
+            keywords_str = paper.keywords_as_string
+
+            # Call the prediction function from ml_utils
+            prediction_result = predict_from_text(
+                title=paper.title,
+                abstract=paper.abstract,
+                keywords=keywords_str
+            )
+
+            logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
+            print(f"INFO: Prediction successful for paper ID {paper.id}: {prediction_result}")
+            messages.success(request, "Citation prediction generated successfully.")
+            context['prediction'] = prediction_result
+
+        except (ValueError, MLModelError) as e:
+            error_message = f"Could not generate prediction: {e}"
+            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
+            print(f"ERROR: Prediction failed for paper ID {paper.id}: {error_message}")
+            messages.error(request, error_message)
+
+        except Exception as e:
+            error_message = "An unexpected error occurred during prediction. Please check the logs."
+            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
+            print(f"CRITICAL: Unexpected prediction error for paper ID {paper.id}: {e}")
+            messages.error(request, error_message)
+
+        return self.render_to_response(context)

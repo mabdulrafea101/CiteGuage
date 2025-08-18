@@ -2,67 +2,126 @@
 {% load static %}
 
 {% block custom_css %}
-    <title>Paper Details: {{ paper.title|truncatechars:50 }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    .prediction-card {
+        background-color: rgba(45, 255, 135, 0.1); /* Greenish tint */
+        border: 1px solid rgba(45, 255, 135, 0.3);
+        backdrop-filter: blur(10px);
+        color: white;
+        transition: all 0.3s ease-in-out;
+    }
+    .prediction-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+    .prediction-value {
+        font-size: 3rem;
+        font-weight: 700;
+        color: #2dff87; /* A vibrant green */
+        text-shadow: 0 0 15px rgba(45, 255, 135, 0.5);
+    }
+    .ci-range {
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.8);
+    }
+    .detail-label {
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    .keyword-badge {
+        background-color: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+</style>
 {% endblock custom_css %}
 
-
 {% block main_content %}
-<div class="container my-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h2 class="text-white mb-1">
-                            <i class="fas fa-file-alt me-2"></i>Paper Details
-                        </h2>
-                        <p class="text-glass-muted mb-0">Analysis of document: {{ paper.filename }}</p>
-                    </div>
-                    <a href="{% url 'dashboard' %}" class="btn btn-secondary-glass">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                    </a>
-                </div>
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-8">
 
-                <!-- Title -->
-                <div class="mb-4">
-                    <h4 class="text-white">{{ paper.title }}</h4>
-                    <hr class="border-secondary">
-                    <div class="d-flex flex-wrap align-items-center">
-                        <span class="badge bg-primary me-2 mb-2"><i class="bi bi-file-earmark-text me-1"></i> {{ paper.file_type|upper }}</span>
-                        <span class="badge bg-info text-dark me-2 mb-2"><i class="bi bi-hdd me-1"></i> {{ paper.get_file_size_display }}</span>
-                        <span class="badge bg-light text-dark me-2 mb-2"><i class="bi bi-clock-history me-1"></i> Updated: {{ paper.updated_at|date:"M d, Y H:i" }}</span>
-                        <span class="badge bg-secondary me-2 mb-2"><i class="bi bi-key me-1"></i> ID: {{ paper.id }}</span>
-                    </div>
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                
-                <!-- Abstract -->
-                <div class="mb-4">
-                    <h5 class="text-white mb-2"><i class="bi bi-card-text me-2"></i>Abstract</h5>
-                    <div class="p-3 rounded" style="background-color: rgba(0,0,0,0.2);">
-                        <p class="text-light mb-0" style="text-align: justify;">
-                            {{ paper.abstract|default:"No abstract available."|linebreaksbr }}
+                {% endfor %}
+            {% endif %}
+
+            <div class="glass-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h1 class="text-white mb-1">{{ paper.title }}</h1>
+                        <p class="text-glass-muted mb-0">
+                            <i class="fas fa-file me-1"></i> {{ paper.filename }}
                         </p>
                     </div>
+                    <a href="{% url 'my_papers' %}" class="btn btn-secondary-glass flex-shrink-0 ms-3">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Papers
+                    </a>
                 </div>
-                
-                <!-- Keywords -->
-                <div>
-                    <h5 class="text-white mb-2"><i class="bi bi-tags me-2"></i>Keywords</h5>
-                    <div class="keywords">
+                <hr class="border-glass">
+
+                <div class="mb-4">
+                    <p class="detail-label">Abstract</p>
+                    <p class="text-white-80">{{ paper.abstract|default:"No abstract provided." }}</p>
+                </div>
+
+                <div class="mb-4">
+                    <p class="detail-label">Keywords</p>
+                    {% if paper.keywords %}
                         {% for keyword in paper.keywords %}
-                            <span class="badge bg-secondary me-2 mb-2 p-2 fs-6">{{ keyword }}</span>
-                        {% empty %}
-                            <p class="text-glass-muted">No keywords were extracted from this document.</p>
+                            <span class="badge keyword-badge p-2 me-2 mb-2">{{ keyword }}</span>
                         {% endfor %}
-                    </div>
+                    {% else %}
+                        <p class="text-white-80">No keywords provided.</p>
+                    {% endif %}
                 </div>
+
+                <div>
+                    <p class="detail-label">File Details</p>
+                    <p class="text-white-80 mb-1">
+                        <strong>Type:</strong> <span class="badge bg-primary">{{ paper.file_type|upper }}</span>
+                    </p>
+                    <p class="text-white-80">
+                        <strong>Size:</strong> {{ paper.get_file_size_display }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="glass-card p-4">
+                <h4 class="text-white mb-3"><i class="fas fa-brain me-2"></i>Citation Prediction</h4>
+                <p class="text-glass-muted mb-4">
+                    Use our AI model to predict the potential citation count for this paper based on its title, abstract, and keywords.
+                </p>
+
+                <!-- Prediction Form -->
+                <form method="post" action="{% url 'Research_paper_detail' paper.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary-glass w-100 mb-4">
+                        <i class="fas fa-magic me-2"></i>Predict Citations
+                    </button>
+                </form>
+
+                <!-- Prediction Result -->
+                {% if prediction %}
+                <div class="prediction-card p-4 rounded text-center">
+                    <p class="text-glass-muted mb-1">Predicted Citations (2 years)</p>
+                    <div class="prediction-value">{{ prediction.predicted }}</div>
+                    {% if prediction.ci_low is not None and prediction.ci_high is not None %}
+                        <p class="ci-range mb-0">
+                            95% Confidence: {{ prediction.ci_low|floatformat:0 }} - {{ prediction.ci_high|floatformat:0 }}
+                        </p>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 {% endblock main_content %}
-
-
-{% block custom_js %}
-{% endblock custom_js %}

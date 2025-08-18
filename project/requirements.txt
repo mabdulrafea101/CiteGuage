@@ -11,6 +11,7 @@ click-repl==0.3.0
 django==5.2.1
 dotenv==0.9.9
 idna==3.10
+joblib==1.5.1
 kombu==5.5.4
 lxml==6.0.0
 numpy==2.3.1
@@ -27,8 +28,11 @@ python-dotenv==1.1.1
 pytz==2025.2
 redis==6.2.0
 requests==2.32.4
+scikit-learn==1.7.1
+scipy==1.16.1
 six==1.17.0
 sqlparse==0.5.3
+threadpoolctl==3.6.0
 typing-extensions==4.14.1
 tzdata==2025.2
 urllib3==2.5.0
