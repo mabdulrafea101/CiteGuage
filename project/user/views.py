@@ -16,6 +16,10 @@ from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, Cus
 from .WOS_utils import search_papers_wos
 
 
+from django.conf import settings
+
+
+
 # ----------------- SIGNUP -----------------
 
 
@@ -263,4 +267,82 @@ def wos_paper_list_view(request):
         "papers": papers,
         "search_history": search_history,
         "json_data_to_display": json_data_to_display,
+    })
+
+
+
+
+
+def import_papers_from_json(request):
+    # Path to your json_data folder
+    json_data_dir = os.path.join(os.getcwd(), "json_data")
+    # List all JSON files (recursively, if needed)
+    json_files = []
+    for root, dirs, files in os.walk(json_data_dir):
+        for file in files:
+            if file.endswith(".json"):
+                json_files.append(os.path.join(root, file))
+
+    if request.method == "POST":
+        selected_file = request.POST.get("json_file")
+        if not selected_file or not os.path.exists(selected_file):
+            messages.error(request, "Invalid file selected.")
+            return redirect("import_papers_from_json")
+
+        # Load JSON data
+        with open(selected_file, "r", encoding="utf-8") as f:
+            try:
+                records = json.load(f)
+            except Exception as e:
+                messages.error(request, f"Failed to load JSON: {e}")
+                return redirect("import_papers_from_json")
+
+        # If the JSON is a dict with a list inside, extract it
+        if isinstance(records, dict):
+            # Try common keys
+            for key in ["records", "REC", "data"]:
+                if key in records:
+                    records = records[key]
+                    break
+
+        if not isinstance(records, list):
+            messages.error(request, "JSON file does not contain a list of records.")
+            return redirect("import_papers_from_json")
+
+        # Import each record
+        imported = 0
+        for rec in records:
+            # Map fields from JSON to Paper model
+            title = rec.get("title") or rec.get("TI") or rec.get("Title") or ""
+            abstract = rec.get("abstract") or rec.get("AB") or ""
+            keywords = rec.get("keywords") or rec.get("DE") or ""
+            publication_year = rec.get("publication_year") or rec.get("PY") or None
+            category = rec.get("category") or rec.get("SO") or ""
+            authors = rec.get("authors") or rec.get("AU") or ""
+            status = "imported"
+
+            # If you want to assign to the current user, or a default user:
+            user = request.user if request.user.is_authenticated else CustomUser.objects.first()
+
+            # Avoid duplicates (optional): check by title and user
+            if Paper.objects.filter(title=title, user=user).exists():
+                continue
+
+            Paper.objects.create(
+                user=user,
+                title=title,
+                abstract=abstract,
+                keywords=keywords,
+                publication_year=publication_year,
+                category=category,
+                authors=", ".join(authors) if isinstance(authors, list) else authors,
+                status=status,
+            )
+            imported += 1
+
+        messages.success(request, f"Imported {imported} papers from {os.path.basename(selected_file)}.")
+        return redirect("import_papers_from_json")
+
+    return render(request, "user/import_papers_from_json.html", {
+        "json_files": json_files,
     })

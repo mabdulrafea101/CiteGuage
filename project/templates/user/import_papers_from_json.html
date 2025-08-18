@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static %}
+{% block custom_css %}
+  
+{% endblock custom_css %}
+{% block main_content %}
+<div class="container my-5">
+  <h2>Import Papers from JSON</h2>
+  <form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="json_file" class="form-label">Select JSON file:</label>
+      <select name="json_file" id="json_file" class="form-control form-control-glass">
+        {% for file in json_files %}
+          <option value="{{ file }}">{{ file|cut:request.get_host }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary-glass">Import</button>
+  </form>
+</div>
+{% endblock main_content %}
+
+{% block custom_js %}
+  
+{% endblock custom_js %}

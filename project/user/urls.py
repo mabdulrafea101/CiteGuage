@@ -9,6 +9,7 @@ from .views import (
     PaperListView,
     upload_my_paper,
     wos_paper_list_view,
+    import_papers_from_json
 )
 from django.contrib.auth.views import LogoutView
 
@@ -29,4 +30,5 @@ urlpatterns = [
     path('papers/api/upload/', upload_my_paper, name='upload_my_paper'),  # AJAX/JSON API endpoint
 
     path("wos-papers/", wos_paper_list_view, name="wos_papers"),  # List papers from WOS
+    path("papers/import-json/", import_papers_from_json, name="import_papers_from_json"),
 ]
