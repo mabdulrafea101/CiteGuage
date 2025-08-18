@@ -2,7 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
-
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 # ---------------------------
 # Custom User
@@ -105,3 +106,70 @@ class WOSSearchHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.email} | {self.query} | {self.searched_at.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+
+
+
+
+CustomUser = get_user_model()
+
+class ResearchPaper(models.Model):
+    """
+    Model to store research paper information extracted from uploaded documents
+    """
+    user = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='research_papers',
+        help_text="User who uploaded the document"
+    )
+    filename = models.CharField(
+        max_length=255,
+        help_text="Original filename of the uploaded document"
+    )
+    title = models.TextField(
+        help_text="Extracted or generated title from the document"
+    )
+    abstract = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Extracted abstract or summary from the document"
+    )
+    keywords = models.JSONField(
+        default=list,
+        help_text="List of extracted keywords from the document"
+    )
+    file_size = models.PositiveIntegerField(
+        help_text="Size of the original file in bytes"
+    )
+    file_type = models.CharField(
+        max_length=10,
+        help_text="File extension (pdf, docx, txt)"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+        unique_together = ['user', 'filename']  # Prevent duplicate filenames per user
+        indexes = [
+            models.Index(fields=['user', 'filename']),
+            models.Index(fields=['uploaded_at']),
+        ]
+    
+    def __str__(self):
+        return self.filename
+    
+    @property
+    def keywords_as_string(self):
+        """Return keywords as comma-separated string"""
+        return ', '.join(self.keywords) if self.keywords else ''
+    
+    def get_file_size_display(self):
+        """Return human-readable file size"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"

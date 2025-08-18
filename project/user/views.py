@@ -346,3 +346,6 @@ def import_papers_from_json(request):
     return render(request, "user/import_papers_from_json.html", {
         "json_files": json_files,
     })
+
+
+

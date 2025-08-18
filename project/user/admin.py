@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory
+from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, ResearchPaper
 
 # Inline for ResearcherProfile on the CustomUser admin page
 class ResearcherProfileInline(admin.StackedInline):
@@ -56,3 +56,28 @@ class WOSSearchHistoryAdmin(admin.ModelAdmin):
     list_display = ('user', 'query', 'search_field', 'count', 'searched_at')
     search_fields = ('user__email', 'query', 'search_field')
     list_filter = ('search_field', 'searched_at')
+
+
+@admin.register(ResearchPaper)
+class ResearchPaperAdmin(admin.ModelAdmin):
+    list_display = ['filename', 'user', 'title', 'file_type', 'file_size', 'uploaded_at', 'updated_at']
+    list_filter = ['file_type', 'uploaded_at', 'updated_at']
+    search_fields = ['filename', 'title', 'user__username', 'user__email']
+    readonly_fields = ['uploaded_at', 'updated_at']
+    ordering = ['-updated_at']
+    
+    fieldsets = (
+        ('File Information', {
+            'fields': ('user', 'filename', 'file_type', 'file_size')
+        }),
+        ('Content', {
+            'fields': ('title', 'abstract', 'keywords')
+        }),
+        ('Timestamps', {
+            'fields': ('uploaded_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
