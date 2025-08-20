@@ -9,7 +9,7 @@ from .views import (
     PaperListView,
     upload_my_paper,
     wos_paper_list_view,
-    import_papers_from_json
+    import_papers_from_json,
 )
 from django.contrib.auth.views import LogoutView
 

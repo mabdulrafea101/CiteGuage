@@ -131,10 +131,35 @@ def parse_papers(records):
                .get("silo_tc", [{}])[0]
                .get("local_count", 0)
         )
+
+        # Safely extract abstract
+        abstract_text = ""
+        try:
+            abstract_paras = rec.get("static_data", {}).get("summary", {}).get("abstracts", {}).get("abstract", [{}])[0].get("abstract_text", {}).get("p", [])
+            if isinstance(abstract_paras, list):
+                abstract_text = " ".join(abstract_paras)
+            elif isinstance(abstract_paras, str):
+                abstract_text = abstract_paras
+        except (IndexError, TypeError, AttributeError):
+            abstract_text = "No abstract available."
+
+        # Safely extract keywords
+        keywords_list = []
+        try:
+            keywords_data = rec.get("static_data", {}).get("item", {}).get("keywords", {}).get("keyword", [])
+            if isinstance(keywords_data, list):
+                keywords_list = keywords_data
+            elif isinstance(keywords_data, str):
+                keywords_list = [keywords_data]
+        except (TypeError, AttributeError):
+            keywords_list = []
+
         papers.append({
             "title": title,
             "uid": rec.get("UID"),
-            "citations": citations
+            "citations": citations,
+            "abstract": abstract_text,
+            "keywords": keywords_list,
         })
     return papers
 
