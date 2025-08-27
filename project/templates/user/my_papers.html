@@ -68,7 +68,7 @@
                       <td>{{ paper.upload_date|date:"M d, Y" }}</td>
                       <td>
                         <div class="btn-group">
-                          <a href="{{ paper.document.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                          <a href="#" class="btn btn-sm btn-outline-primary" target="_blank">
                             <i class="fas fa-file-pdf"></i>
                           </a>
                           {% if paper.status == 'draft' %}
@@ -157,7 +157,7 @@
                           </div>
                           <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <a href="{{ paper.document.url }}" class="btn btn-primary" target="_blank">
+                            <a href="#" class="btn btn-primary" target="_blank">
                               <i class="fas fa-file-pdf me-2"></i>View Document
                             </a>
                           </div>

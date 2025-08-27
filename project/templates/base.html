@@ -73,11 +73,6 @@
                 <i class="fas fa-brain me-1"></i>Predictions
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#analytics">
-                <i class="fas fa-chart-bar me-1"></i>Analytics
-              </a>
-            </li>
           </ul>
 
           <ul class="navbar-nav">
@@ -91,13 +86,18 @@
                 <i class="fas fa-user-circle me-1"></i>Profile
               </a>
               <ul class="dropdown-menu">
-                <li>
-                  <a class="dropdown-item" href="{% url 'researcher_profile' %}"
+                
+                  {% if researcher_profile %}
+                  <li>
+                    <a class="dropdown-item" href="{% url 'researcher_profile' %}"
                     ><i class="fas fa-cog me-2"></i>{{request.user.first_name}}</a
                   >
-                </li>
+                  </li>
+                  {% endif %}
+                  
+                
                 <li>
-                  <a class="dropdown-item" href="{% url 'my_papers' %}"
+                  <a class="dropdown-item" href="{% url 'wos_papers' %}"
                     ><i class="fas fa-chart-line me-2"></i>My Research</a
                   >
                 </li>

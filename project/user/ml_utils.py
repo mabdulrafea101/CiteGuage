@@ -158,7 +158,7 @@ def _transform_text_to_features(vectorizer, title, abstract, keywords):
         raise MLModelError(f"Failed to combine vectorized features: {e}")
 
 
-def predict_from_text(title: str, abstract: str, keywords: str):
+def predict_from_text(title: str, abstract: str, keywords: str, numerical_features: np.ndarray = None):
     """
     Returns dict: {
       'raw_prediction': float,
@@ -166,6 +166,7 @@ def predict_from_text(title: str, abstract: str, keywords: str):
       'ci_low': float|None,
       'ci_high': float|None
     }
+    `numerical_features`: Optional 1D numpy array of numerical features.
     """
     # Basic validation
     if not (title or abstract):
@@ -176,22 +177,36 @@ def predict_from_text(title: str, abstract: str, keywords: str):
     model_results = load_model_results()
 
     # Transform text to feature vector
-    X = _transform_text_to_features(vectorizer, title, abstract, keywords)
+    X_text = _transform_text_to_features(vectorizer, title, abstract, keywords)
 
-    # Check for feature mismatch and pad or truncate if necessary.
-    # This handles cases where the model was trained with additional numerical features
-    # that are not generated from the text inputs.
+    # Combine with numerical features if they are provided
+    if numerical_features is not None:
+        if hstack is None or csr_matrix is None:
+            raise MLModelError("scipy is required to combine text and numerical features.")
+        
+        # Ensure numerical_features is a 2D array for hstack
+        if numerical_features.ndim == 1:
+            numerical_features = numerical_features.reshape(1, -1)
+        
+        X_numerical = csr_matrix(numerical_features)
+        X = hstack([X_text, X_numerical])
+    else:
+        X = X_text
+
+    # Now, handle potential mismatches between the generated features and what the model expects.
+    # This is a fallback for when `numerical_features` are not provided, or vectorizer versions differ.
     try:
         expected_features = model.n_features_in_
         current_features = X.shape[1]
 
         if current_features != expected_features:
-            logger.warning(
-                "Feature mismatch detected. Input has %d features, model expects %d. "
-                "Attempting to fix shape. This may affect prediction accuracy.",
-                current_features,
-                expected_features
+            warning_message = (
+                f"Feature mismatch detected. Input has {current_features} features, but model expects {expected_features}. "
+                "This may be due to missing numerical features or a scikit-learn version mismatch. "
+                "Attempting to fix shape, but this can affect prediction accuracy."
             )
+            logger.warning(warning_message)
+            
             if current_features < expected_features:
                 # Pad with zeros if features are missing
                 if hstack is None or csr_matrix is None:
@@ -199,7 +214,7 @@ def predict_from_text(title: str, abstract: str, keywords: str):
                 
                 missing_features_count = expected_features - current_features
                 padding = csr_matrix((X.shape[0], missing_features_count), dtype=X.dtype)
-                X = hstack([X, padding])
+                X = hstack([X, padding]) # Pad the combined features
                 logger.info("Padded input with %d zero-features.", missing_features_count)
             else:
                 # Truncate if there are too many features
