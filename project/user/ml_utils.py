@@ -216,8 +216,16 @@ def predict_from_text(title: str, abstract: str, keywords: str, numerical_featur
                 
                 missing_features_count = expected_features - current_features
                 padding = csr_matrix((X.shape[0], missing_features_count), dtype=X.dtype)
-                X = hstack([X, padding]) # Pad the combined features
-                logger.info("Padded input with %d zero-features.", missing_features_count)
+                
+                # If numerical features were not provided, they are the missing ones and should be at the start.
+                # The training pipeline combines features as [numerical, text].
+                if numerical_features is None and missing_features_count > 0:
+                    X = hstack([padding, X])
+                    logger.info("Prepended %d zero-features for missing numerical features.", missing_features_count)
+                else:
+                    # Otherwise, something else is missing, pad at the end as a fallback.
+                    X = hstack([X, padding])
+                    logger.info("Appended %d zero-features to match model input.", missing_features_count)
             else:
                 # Truncate if there are too many features
                 X = X[:, :expected_features]
@@ -243,6 +251,15 @@ def predict_from_text(title: str, abstract: str, keywords: str, numerical_featur
         except Exception as e:
             logger.error("Unexpected prediction output: %s", e)
             raise MLModelError("Unexpected model prediction output")
+
+    # --- FIX for potential overflow ---
+    # Cap the log-scale prediction to prevent np.expm1 from overflowing.
+    # A value of 15 corresponds to ~3.2 million citations, a safe upper bound.
+    LOG_PRED_CAP = 15.0
+    if pred_val_log > LOG_PRED_CAP:
+        logger.warning(f"Log-scale prediction {pred_val_log:.2f} is very large. Capping at {LOG_PRED_CAP}.")
+        pred_val_log = LOG_PRED_CAP
+
 
     # The model was trained on log1p(citations), so we must apply the
     # inverse transformation (expm1) to get the actual citation count.

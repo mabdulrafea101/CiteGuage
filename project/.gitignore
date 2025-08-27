@@ -1,76 +1,76 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
-*.pyo
-*.pyd
+*.pyc
+*.[oa]
 *.so
 
-# Django
-db.sqlite3
-*.sqlite3
-*.log
+# C extensions
+*.pyd
+*.dll
 
-# Environment
-.env
-.venv/
-venv/
-ENV/
-env/
-*.env
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# VSCode and IDEs
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Static and media (user uploads)
-media/
-staticfiles/
-
-# Test/coverage
-.coverage
+# Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
-.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
 *.cover
 
-# Migrations (optional, if you want to ignore generated migrations)
-# **Uncomment if you want to ignore all migration files**
-# */migrations/
-# !*/migrations/__init__.py
-
-# Data and results
-json_data/
-
-# Jupyter Notebooks checkpoints
-.ipynb_checkpoints/
-
-# Compiled files
-*.exe
-*.dll
-*.obj
-*.o
-*.a
-*.lib
-
-# Backup files
-*~
-*.bak
-*.swp
-*.tmp
-
-# Node (if you ever add frontend tooling)
-node_modules/
-
-# Mac system files
-.DS_Store
-
-# Logs
+# Django stuff
 *.log
-logs/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media/
+/staticfiles/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# IDE settings
+.idea/
+.vscode/
+
+# --- ML Model Files (ml_models/) ---
+# Ignore everything in the ml_models directory by default.
+/ml_models/*
+
+# Now, re-include (don't ignore) the essential files we want to track.
+!/ml_models/train_model_new.ipynb
+!/ml_models/ridge_model.pkl
+!/ml_models/tfidf_vectorizers.pkl
+!/ml_models/lda_model.pkl
+!/ml_models/lda_count_vectorizer.pkl
+!/ml_models/model_results.pkl
+!/ml_models/numerical_features_summary.csv
+
+# We need to un-ignore the directory itself so Git can look inside it.
+!/ml_models/
+/json_data/*
