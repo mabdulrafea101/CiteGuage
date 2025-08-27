@@ -189,7 +189,9 @@ def predict_from_text(title: str, abstract: str, keywords: str, numerical_featur
             numerical_features = numerical_features.reshape(1, -1)
         
         X_numerical = csr_matrix(numerical_features)
-        X = hstack([X_text, X_numerical])
+        # FIX: The hstack order must match the training order.
+        # Training order was: hstack([X_numerical_sparse, X_tfidf])
+        X = hstack([X_numerical, X_text])
     else:
         X = X_text
 
@@ -227,20 +229,24 @@ def predict_from_text(title: str, abstract: str, keywords: str, numerical_featur
 
     # Predict (ensure we return a scalar)
     try:
-        raw_pred = model.predict(X)
+        raw_pred_log = model.predict(X)
     except Exception as e:
         logger.exception("Prediction failed: %s", e)
         raise MLModelError(f"Prediction failed: {e}")
 
     # raw_pred might be array-like; get first element
     try:
-        pred_val = float(raw_pred[0])
+        pred_val_log = float(raw_pred_log[0])
     except Exception:
         try:
-            pred_val = float(raw_pred)
+            pred_val_log = float(raw_pred_log)
         except Exception as e:
             logger.error("Unexpected prediction output: %s", e)
             raise MLModelError("Unexpected model prediction output")
+
+    # The model was trained on log1p(citations), so we must apply the
+    # inverse transformation (expm1) to get the actual citation count.
+    pred_val = np.expm1(pred_val_log)
 
     # Post-process: ensure non-negative integer for citation count
     predicted_int = max(0, int(round(pred_val)))
@@ -248,28 +254,41 @@ def predict_from_text(title: str, abstract: str, keywords: str, numerical_featur
     # Compute simple CI if rmse present in model_results
     ci_low = None
     ci_high = None
+
     if model_results:
-        # Look for commonly used keys
         rmse = None
-        for key in ("rmse", "RMSE", "std", "residual_std", "residuals_std"):
-            if isinstance(model_results, dict) and key in model_results:
-                try:
-                    rmse = float(model_results[key])
-                    break
-                except Exception:
-                    continue
-        # sometimes model_results is an object with attributes
-        if rmse is None:
-            try:
-                rmse = float(getattr(model_results, "rmse", None) or getattr(model_results, "RMSE", None))
-            except Exception:
-                rmse = None
+        if isinstance(model_results, dict):
+            # Check for nested structure like {'ridge': {'test_mse': ...}}
+            for model_name, metrics in model_results.items():
+                if isinstance(metrics, dict) and 'test_mse' in metrics:
+                    try:
+                        rmse = np.sqrt(float(metrics['test_mse']))
+                        break
+                    except (ValueError, TypeError):
+                        continue
+            
+            # Fallback to top-level keys if not found in nested dict
+            if rmse is None:
+                for key in ("rmse", "RMSE", "test_rmse"):
+                    if key in model_results:
+                        try:
+                            rmse = float(model_results[key])
+                            break
+                        except (ValueError, TypeError):
+                            continue
 
         if rmse is not None:
-            # 95% CI approx using normal assumption
-            margin = 1.96 * rmse
-            ci_low = max(0.0, pred_val - margin)
-            ci_high = max(0.0, pred_val + margin)
+            # RMSE is on the log-transformed scale.
+            # Calculate CI on log scale, then transform the bounds back.
+            margin = 1.96 * rmse  # 95% CI
+            ci_low_log = pred_val_log - margin
+            ci_high_log = pred_val_log + margin
+            
+            ci_low = np.expm1(ci_low_log)
+            ci_high = np.expm1(ci_high_log)
+            
+            # FIX: Clip the lower bound at 0, as negative citations are not possible.
+            ci_low = max(0.0, ci_low)
 
     return {
         "raw_prediction": pred_val,

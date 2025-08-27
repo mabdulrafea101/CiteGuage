@@ -10,6 +10,7 @@ from django.contrib.auth import authenticate, login as auth_login
 from django.contrib import messages
 from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import login_required
+import numpy as np
 
 from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory
 from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
@@ -234,12 +235,55 @@ def wos_paper_list_view(request):
                 uid = request.POST.get("uid")
                 title = request.POST.get("title")
                 abstract = request.POST.get("abstract")
-                keywords = request.POST.get("keywords")
+                keywords_str = request.POST.get("keywords")  # This is a string representation of a list
 
                 predicted_paper_uid = uid  # To highlight the predicted card
 
+                # --- Feature Engineering ---
+                # Get raw data passed from the template's hidden fields
+                publication_year_str = request.POST.get("publication_year")
+                doi = request.POST.get("doi")
+                url = request.POST.get("url")
+                num_references_str = request.POST.get("num_references")
+
+                # 1. title_length
+                title_length = len(title) if title else 0
+                # 2. abstract_length
+                abstract_length = len(abstract) if abstract else 0
+                # 3. num_keywords
+                try:
+                    import ast
+                    keywords_list = ast.literal_eval(keywords_str)
+                    num_keywords = len(keywords_list) if isinstance(keywords_list, list) else 0
+                except (ValueError, SyntaxError):
+                    num_keywords = 0
+                
+                # 4. age
+                try:
+                    publication_year = int(publication_year_str)
+                    current_year = datetime.datetime.now().year
+                    age = max(0, current_year - publication_year)
+                except (ValueError, TypeError):
+                    age = 0  # Default if year is missing/invalid
+                
+                # 5. num_references
+                try:
+                    num_references = int(num_references_str)
+                except (ValueError, TypeError):
+                    num_references = 0
+                
+                # 6. has_doi (1 if DOI exists and is not 'None' or empty)
+                has_doi = 1 if doi and doi.strip() and doi.lower() != 'none' else 0
+                # 7. has_url (1 if URL exists and is not 'None' or empty)
+                has_url = 1 if url and url.strip() and url.lower() != 'none' else 0
+
+                # Create the numerical features array in the correct order
+                numerical_features_array = np.array([
+                    title_length, abstract_length, num_keywords, age, num_references, has_doi, has_url
+                ], dtype=np.float32)
+
                 prediction_result = predict_from_text(
-                    title=title, abstract=abstract, keywords=keywords
+                    title=title, abstract=abstract, keywords=keywords_str, numerical_features=numerical_features_array
                 )
                 prediction = prediction_result
                 messages.success(request, f"Prediction successful for paper: '{title[:30]}...'.")

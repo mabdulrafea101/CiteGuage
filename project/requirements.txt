@@ -13,6 +13,7 @@ dotenv==0.9.9
 idna==3.10
 joblib==1.5.1
 kombu==5.5.4
+lightgbm==4.5.0
 lxml==6.0.0
 numpy==2.3.1
 packaging==25.0
@@ -28,7 +29,7 @@ python-dotenv==1.1.1
 pytz==2025.2
 redis==6.2.0
 requests==2.32.4
-scikit-learn==1.7.1
+scikit-learn==1.5.1
 scipy==1.16.1
 six==1.17.0
 sqlparse==0.5.3

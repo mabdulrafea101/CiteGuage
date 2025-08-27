@@ -117,6 +117,47 @@ def extract_title(rec):
     return "Untitled"
 
 
+def extract_publication_year(rec):
+    """Safely extract the publication year."""
+    try:
+        return rec.get("static_data", {}).get("summary", {}).get("pub_info", {}).get("pubyear")
+    except Exception:
+        return None
+
+
+def extract_doi(rec):
+    """Safely extract the DOI."""
+    try:
+        other_ids = rec.get("static_data", {}).get("item", {}).get("bib_id", {}).get("other", [])
+        if isinstance(other_ids, list):
+            for item in other_ids:
+                if isinstance(item, dict) and item.get("type") == "doi":
+                    return item.get("value")
+    except Exception:
+        return None
+    return None
+
+
+def extract_url(rec):
+    """Safely extract a source URL."""
+    try:
+        source_urls = rec.get("static_data", {}).get("fullrecord_metadata", {}).get("reprint_requests", {}).get("source_url", [])
+        if isinstance(source_urls, list) and source_urls:
+            return source_urls[0].get("url")
+    except Exception:
+        return None
+    return None
+
+
+def count_references(rec):
+    """Safely count the number of references."""
+    try:
+        references = rec.get("static_data", {}).get("fullrecord_metadata", {}).get("references", {}).get("reference", [])
+        return len(references) if isinstance(references, list) else 0
+    except Exception:
+        return 0
+
+
 def parse_papers(records):
     """Parses list of WOS records into structured paper dictionaries."""
     papers = []
@@ -160,6 +201,11 @@ def parse_papers(records):
             "citations": citations,
             "abstract": abstract_text,
             "keywords": keywords_list,
+            # New fields for feature engineering
+            "publication_year": extract_publication_year(rec),
+            "doi": extract_doi(rec),
+            "url": extract_url(rec),
+            "num_references": count_references(rec),
         })
     return papers
 
