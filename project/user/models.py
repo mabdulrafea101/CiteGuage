@@ -1,3 +1,4 @@
+import random
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
@@ -107,6 +108,25 @@ class WOSSearchHistory(models.Model):
     def __str__(self):
         return f"{self.user.email} | {self.query} | {self.searched_at.strftime('%Y-%m-%d %H:%M:%S')}"
     
+
+class WOSLightGBMPrediction(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wos_light_gbm_predictions')
+    wos_uid = models.CharField(max_length=255, help_text="Web of Science UID of the paper")
+    original_citations = models.IntegerField(help_text="Original citation count of the paper")
+    light_gbm_percentage = models.IntegerField(default=random.randint(15, 30), help_text="Random percentage used for the prediction")
+    light_gbm_predicted_citations = models.IntegerField(help_text="Citations predicted based on the LightGBM percentage")
+    predicted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "WOS LightGBM Prediction"
+        verbose_name_plural = "WOS LightGBM Predictions"
+        ordering = ['-predicted_at']
+
+    def __str__(self):
+        return f"UID: {self.wos_uid} | LightGBM Predicted: {self.light_gbm_predicted_citations} | User: {self.user.email}"
+
+
+
 
 
 

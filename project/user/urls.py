@@ -8,7 +8,8 @@ from .views import (
     PaperCreateView,
     PaperListView,
     upload_my_paper,
-    wos_paper_list_view,
+    wos_paper_list_view, 
+    light_gbm_predict_wos_paper_view,
     import_papers_from_json,
 )
 from django.contrib.auth.views import LogoutView
@@ -31,4 +32,5 @@ urlpatterns = [
 
     path("wos-papers/", wos_paper_list_view, name="wos_papers"),  # List papers from WOS
     path("papers/import-json/", import_papers_from_json, name="import_papers_from_json"),
+    path("wos-papers/light-gbm-predict/", light_gbm_predict_wos_paper_view, name="light_gbm_predict_wos_papers"),
 ]

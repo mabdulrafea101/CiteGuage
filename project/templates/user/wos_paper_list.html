@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block custom_css %}
 <style>
@@ -136,6 +137,11 @@
                             <input type="hidden" name="title" value="{{ paper.title }}">
                             <input type="hidden" name="abstract" value="{{ paper.abstract }}">
                             <input type="hidden" name="keywords" value="{{ paper.keywords|join:', ' }}">
+                            <!-- Hidden fields for feature engineering -->
+                            <input type="hidden" name="publication_year" value="{{ paper.publication_year|default_if_none:'' }}">
+                            <input type="hidden" name="doi" value="{{ paper.doi|default_if_none:'' }}">
+                            <input type="hidden" name="url" value="{{ paper.url|default_if_none:'' }}">
+                            <input type="hidden" name="num_references" value="{{ paper.num_references|default_if_none:'' }}">
                             <!-- Keep state -->
                             <input type="hidden" name="search_field" value="{{ form.search_field.value|default:search_field }}">
                             <input type="hidden" name="query" value="{{ form.query.value|default:query }}">
@@ -143,6 +149,17 @@
 
                             <button type="submit" class="btn btn-primary-glass btn-sm">
                                 <i class="fas fa-brain me-2"></i>Predict Citations
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'light_gbm_predict_wos_papers' %}" class="ms-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="uid" value="{{ paper.uid }}">
+                            <input type="hidden" name="citations" value="{{ paper.citations }}">
+                            <input type="hidden" name="search_field" value="{{ form.search_field.value|default:search_field }}">
+                            <input type="hidden" name="query" value="{{ form.query.value|default:query }}">
+                            <input type="hidden" name="count" value="{{ form.count.value|default:count }}">
+                            <button type="submit" class="btn btn-secondary-glass btn-sm light-gbm-predict-btn">
+                                <i class="fas fa-magic me-2"></i>LightGBM Predict
                             </button>
                         </form>
 
@@ -156,8 +173,40 @@
                                 </p>
                             {% endif %}
                         </div>
+                        {% elif paper.uid == light_gbm_predicted_uid %}
+                        <!-- This block will be shown if a LightGBM prediction was just made for this paper -->
+                        <div class="prediction-result-card p-3 rounded text-center flex-grow-1">
+                            <p class="text-glass-muted mb-1 small">LightGBM Predicted Citations (2 years)</p>
+                            {% with predictions=light_gbm_predictions_map|get_item:paper.uid %}
+                                <div class="prediction-value">
+                                  {% if predictions %}
+                                    {{ predictions.0.light_gbm_predicted_citations }}
+                                  {% else %}
+                                    N/A
+                                  {% endif %}
+                                </div>
+                                {% if predictions %}
+                                    <p class="small text-white-80 mb-0">(at {{ predictions.0.light_gbm_percentage }}% of original)</p>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
                         {% endif %}
                     </div>
+
+                    <!-- Display all LightGBM predictions for this paper -->
+                    {% if light_gbm_predictions_map|get_item:paper.uid %}
+                        <div class="mt-3">
+                            <h6 class="text-white-80">Past Dummy Predictions:</h6>
+                            <ul class="list-unstyled small">
+                                {% for dp in light_gbm_predictions_map|get_item:paper.uid %}
+                                    <li>
+                                        <i class="fas fa-chart-line text-secondary me-1"></i>
+                                        {{ dp.light_gbm_predicted_citations }} citations (at {{ dp.light_gbm_percentage }}%) on {{ dp.predicted_at|date:"M d, Y H:i" }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
 
@@ -180,6 +229,7 @@
 
 <script>
     $(document).ready(function(){
+
         $(".details-btn").click(function(){
             var paperId = $(this).data("id");
             var detailsRow = $("#details-" + paperId);

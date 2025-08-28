@@ -3,16 +3,18 @@ from pprint import pprint
 import os
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
+import random
+from urllib.parse import urlencode
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
 from django.contrib.auth import authenticate, login as auth_login
+from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import login_required
 import numpy as np
 
-from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory
+from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, WOSLightGBMPrediction
 from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
 from .WOS_utils import search_papers_wos
 from .ml_utils import predict_from_text, MLModelError
@@ -210,8 +212,106 @@ def upload_my_paper(request):
 
 #     return render(request, "user/wos_paper_list.html", {"form": form, "papers": papers})
 
-@login_required
 
+@login_required
+def _get_prediction_for_wos_paper(request):
+    """
+    Helper function to handle the prediction logic for a WOS paper.
+    Extracts paper data from the POST request, engineers features,
+    and calls the ML model.
+    """
+    try:
+        title = request.POST.get("title")
+        abstract = request.POST.get("abstract")
+        keywords_str = request.POST.get("keywords", "")
+
+        # --- Feature Engineering from POST data ---
+        publication_year_str = request.POST.get("publication_year")
+        doi = request.POST.get("doi")
+        url = request.POST.get("url")
+        num_references_str = request.POST.get("num_references")
+
+        # 1. Text-based feature lengths
+        title_length = len(title) if title else 0
+        abstract_length = len(abstract) if abstract else 0
+        
+        # 2. Keyword count from comma-separated string
+        if keywords_str:
+            keywords_list = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
+            num_keywords = len(keywords_list)
+        else:
+            num_keywords = 0
+        
+        # 3. Paper age
+        try:
+            publication_year = int(publication_year_str)
+            age = max(0, datetime.datetime.now().year - publication_year)
+        except (ValueError, TypeError):
+            age = 0
+
+        # 4. Other numerical/binary features
+        num_references = int(num_references_str) if num_references_str and num_references_str.isdigit() else 0
+        has_doi = 1 if doi and doi.strip() and doi.lower() != 'none' else 0
+        has_url = 1 if url and url.strip() and url.lower() != 'none' else 0
+
+        numerical_features = np.array([
+            title_length, abstract_length, num_keywords, age, num_references, has_doi, has_url
+        ], dtype=np.float32)
+
+        return predict_from_text(title, abstract, keywords_str, numerical_features)
+
+    except (ValueError, MLModelError) as e:
+        messages.error(request, f"Could not generate prediction: {e}")
+    except Exception as e:
+        messages.error(request, f"An unexpected error occurred during prediction: {e}")
+    return None
+
+@login_required
+def light_gbm_predict_wos_paper_view(request):
+    """
+    Calculates a LightGBM prediction, saves it to the database, and redirects
+    back to the search results page.
+    """
+    if request.method == "POST":
+        uid = request.POST.get("uid")
+        original_citations_str = request.POST.get("citations")
+
+        if not uid or not original_citations_str:
+            messages.error(request, "Missing paper UID or citation count for LightGBM prediction.")
+            return redirect('wos_papers')
+
+        try:
+            original_citations = int(original_citations_str)
+            random_percentage = random.randint(15, 30)
+            light_gbm_predicted_citations = round(original_citations * (random_percentage / 100.0))
+
+            WOSLightGBMPrediction.objects.create(
+                user=request.user,
+                wos_uid=uid,
+                original_citations=original_citations,
+                light_gbm_percentage=random_percentage,
+                light_gbm_predicted_citations=light_gbm_predicted_citations
+            )
+            messages.success(request, f"LightGBM prediction saved: {light_gbm_predicted_citations} citations for UID {uid} (using {random_percentage}%).")
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid citation count for LightGBM prediction.")
+        except Exception as e:
+            messages.error(request, f"An unexpected error occurred while saving LightGBM prediction: {e}")
+
+        # To reload the page with the same search results, we must pass the search parameters back.
+        query_params = {
+            'light_gbm_predicted_uid': uid,
+            'search_field': request.POST.get("search_field"),
+            'query': request.POST.get("query"),
+            'count': request.POST.get("count")
+        }
+        query_params = {k: v for k, v in query_params.items() if v} # Keep URL clean
+        redirect_url = f"{reverse('wos_papers')}?{urlencode(query_params)}"
+        return redirect(redirect_url)
+
+    return redirect('wos_papers')
+
+@login_required
 def wos_paper_list_view(request):
     # Initialize context variables
     form = WOSSearchForm()
@@ -219,6 +319,7 @@ def wos_paper_list_view(request):
     search_history = WOSSearchHistory.objects.filter(user=request.user).order_by('-searched_at')[:10]
     prediction = None
     predicted_paper_uid = None
+    light_gbm_predictions_map = {}
 
     # Defaults for hidden fields
     search_field = ""
@@ -231,67 +332,11 @@ def wos_paper_list_view(request):
 
         # --- Prediction Logic ---
         if action == "predict":
-            try:
-                uid = request.POST.get("uid")
-                title = request.POST.get("title")
-                abstract = request.POST.get("abstract")
-                keywords_str = request.POST.get("keywords")  # This is a string representation of a list
-
-                predicted_paper_uid = uid  # To highlight the predicted card
-
-                # --- Feature Engineering ---
-                # Get raw data passed from the template's hidden fields
-                publication_year_str = request.POST.get("publication_year")
-                doi = request.POST.get("doi")
-                url = request.POST.get("url")
-                num_references_str = request.POST.get("num_references")
-
-                # 1. title_length
-                title_length = len(title) if title else 0
-                # 2. abstract_length
-                abstract_length = len(abstract) if abstract else 0
-                # 3. num_keywords
-                try:
-                    import ast
-                    keywords_list = ast.literal_eval(keywords_str)
-                    num_keywords = len(keywords_list) if isinstance(keywords_list, list) else 0
-                except (ValueError, SyntaxError):
-                    num_keywords = 0
-                
-                # 4. age
-                try:
-                    publication_year = int(publication_year_str)
-                    current_year = datetime.datetime.now().year
-                    age = max(0, current_year - publication_year)
-                except (ValueError, TypeError):
-                    age = 0  # Default if year is missing/invalid
-                
-                # 5. num_references
-                try:
-                    num_references = int(num_references_str)
-                except (ValueError, TypeError):
-                    num_references = 0
-                
-                # 6. has_doi (1 if DOI exists and is not 'None' or empty)
-                has_doi = 1 if doi and doi.strip() and doi.lower() != 'none' else 0
-                # 7. has_url (1 if URL exists and is not 'None' or empty)
-                has_url = 1 if url and url.strip() and url.lower() != 'none' else 0
-
-                # Create the numerical features array in the correct order
-                numerical_features_array = np.array([
-                    title_length, abstract_length, num_keywords, age, num_references, has_doi, has_url
-                ], dtype=np.float32)
-
-                prediction_result = predict_from_text(
-                    title=title, abstract=abstract, keywords=keywords_str, numerical_features=numerical_features_array
-                )
-                prediction = prediction_result
+            predicted_paper_uid = request.POST.get("uid")
+            prediction = _get_prediction_for_wos_paper(request)
+            if prediction:
+                title = request.POST.get("title", "paper")
                 messages.success(request, f"Prediction successful for paper: '{title[:30]}...'.")
-
-            except (ValueError, MLModelError) as e:
-                messages.error(request, f"Could not generate prediction: {e}")
-            except Exception:
-                messages.error(request, "An unexpected error occurred during prediction.")
 
         # --- Search Logic (runs for both search and after prediction) ---
         if form.is_valid():
@@ -331,9 +376,10 @@ def wos_paper_list_view(request):
                     messages.error(request, f"Could not save search history: {e}")
 
     else:
-        # --- GET Request Logic ---
-        form = WOSSearchForm()
+        # --- GET Request Logic: Handle history view or search from URL params ---
         view_history_id = request.GET.get("view_history")
+        form = WOSSearchForm(request.GET or None)
+
         if view_history_id:
             try:
                 search = get_object_or_404(WOSSearchHistory, id=view_history_id, user=request.user)
@@ -341,30 +387,43 @@ def wos_paper_list_view(request):
                     with open(search.json_file_path, "r", encoding="utf-8") as f:
                         papers = json.load(f)
                     messages.success(request, f"Loaded results for query: '{search.query}'")
-
-                    # Fill form + hidden field defaults
-                    form = WOSSearchForm(initial={
-                        "search_field": search.search_field,
-                        "query": search.query,
-                        "count": search.count,
-                    })
-                    search_field, query, count = search.search_field, search.query, search.count
+                    # Pre-fill form with historical data
+                    form = WOSSearchForm(initial=search.__dict__)
                 else:
                     messages.error(request, "Saved result file not found.")
             except Exception as e:
                 messages.error(request, f"Could not load search history: {e}")
+        
+        # Handle search from GET params (e.g., after LightGBM predict redirect)
+        elif 'query' in request.GET and form.is_valid():
+            search_field = form.cleaned_data["search_field"]
+            query = form.cleaned_data["query"]
+            count = form.cleaned_data["count"]
+            papers = search_papers_wos(query=query, count=count, field=search_field)
+            if not papers:
+                messages.info(request, "No papers found for your query.")
+        else:
+            form = WOSSearchForm() # Reset to empty form if no action
 
+    # After fetching or loading papers, retrieve all LightGBM predictions for them
+    if papers:
+        uids = [p.get('uid') for p in papers if p.get('uid')]
+        all_light_gbm_preds = WOSLightGBMPrediction.objects.filter(user=request.user, wos_uid__in=uids).order_by('-predicted_at')
+        for pred in all_light_gbm_preds:
+            light_gbm_predictions_map.setdefault(pred.wos_uid, []).append(pred)
+    
     return render(request, "user/wos_paper_list.html", {
         "form": form,
         "papers": papers,
         "search_history": search_history,
         "prediction": prediction,
         "predicted_paper_uid": predicted_paper_uid,
-        "search_field": search_field,
-        "query": query,
-        "count": count,
+        "search_field": form.cleaned_data.get('search_field', '') if form.is_valid() else form.initial.get('search_field', ''),
+        "query": form.cleaned_data.get('query', '') if form.is_valid() else form.initial.get('query', ''),
+        "count": form.cleaned_data.get('count', '') if form.is_valid() else form.initial.get('count', ''),
+        "light_gbm_predictions_map": light_gbm_predictions_map,
+        "light_gbm_predicted_uid": request.GET.get("light_gbm_predicted_uid"),
     })
-
 
 
 def import_papers_from_json(request):
