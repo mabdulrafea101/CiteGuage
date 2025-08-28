@@ -63,22 +63,22 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <a class="nav-link active" href="{% url 'dashboard' %}">
+              <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
                 <i class="fas fa-tachometer-alt me-1"></i>Dashboard
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'wos_papers' %}">
+              <a class="nav-link {% if request.resolver_match.url_name == 'wos_papers' %}active{% endif %}" href="{% url 'wos_papers' %}">
                 <i class="fas fa-quote-right me-1"></i>Citations
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'upload_document' %}">
+              <a class="nav-link {% if request.resolver_match.url_name == 'upload_document' %}active{% endif %}" href="{% url 'upload_document' %}">
                 <i class="fas fa-brain me-1"></i>Predictions
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'json_file_list' %}">
+              <a class="nav-link {% if request.resolver_match.url_name == 'json_file_list' or request.resolver_match.url_name == 'json_file_detail' or request.resolver_match.url_name == 'json_file_table_detail' %}active{% endif %}" href="{% url 'json_file_list' %}">
                 <i class="fas fa-brain me-1"></i>My WOS Searched
               </a>
             </li>

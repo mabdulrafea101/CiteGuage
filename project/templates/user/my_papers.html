@@ -1,34 +1,56 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block custom_css %}
+{% load static %}
+<style>
+  /* Custom styles for DataTables to match the glassmorphic theme */
+  @import url("{% static 'css/dataTables.glass.css' %}");
+
+  #papersTable .btn-group .btn,
+  .modal-footer .btn-glass {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+  }
+  #papersTable .btn-group .btn:hover,
+  .modal-footer .btn-glass:hover {
+    background-color: rgba(45, 255, 135, 0.3) !important;
+    border-color: rgba(45, 255, 135, 0.5) !important;
+  }
+  .modal-header, .modal-footer {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+</style>
+{% endblock custom_css %}
+
 {% block main_content %}
 <div class="container my-5">
   <div class="row">
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">
+        <h2 class="mb-0 text-white">
           <i class="fas fa-quote-right me-2 text-primary"></i>
           My Research Papers
         </h2>
-        <a href="{% url 'upload_document' %}" class="btn btn-primary">
+        <a href="{% url 'upload_document' %}" class="btn btn-primary-glass">
           <i class="fas fa-upload me-2"></i>Upload New Paper
         </a>
       </div>
       
       {% if messages %}
         {% for message in messages %}
-          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show glass-card-messages" role="alert">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         {% endfor %}
       {% endif %}
       
-      <div class="card shadow-sm">
-        <div class="card-body">
+      <div class="glass-card p-4">
           {% if papers %}
             <div class="table-responsive">
-              <table class="table table-hover">
+              <table id="papersTable" class="table table-glass table-hover table-striped" style="width:100%">
                 <thead>
                   <tr>
                     <th>Title</th>
@@ -43,110 +65,124 @@
                 <tbody>
                   {% for paper in papers %}
                     <tr>
-                      <td>{{ paper.title }}</td>
-                      <td><span class="badge bg-secondary">{{ paper.category|default:'N/A' }}</span></td>
+                      <td><a href="{% url 'Research_paper_detail' paper.id %}">{{ paper.title }}</a></td>
+                      <td><span class="badge badge-glass text-secondary">{{ paper.category|default:'N/A' }}</span></td>
                       <td>
                         {% if paper.status == 'draft' %}
-                          <span class="badge bg-warning text-dark">Draft</span>
+                          <span class="badge bg-warning text-dark">{{ paper.status|title }}</span>
                         {% elif paper.status == 'published' %}
-                          <span class="badge bg-success">Published</span>
+                          <span class="badge bg-success">{{ paper.status|title }}</span>
                         {% else %}
-                          <span class="badge bg-info">{{ paper.status|default:'N/A' }}</span>
+                          <span class="badge badge-glass text-secondary">{{ paper.status|default:'N/A'|title }}</span>
                         {% endif %}
                       </td>
                       <td>
-                        {{ paper.predicted_citations|default:"-" }}
+                        <strong class="stat-increase">{{ paper.predicted_citations|default:"-" }}</strong>
                       </td>
                       <td>
                         {% if paper.prediction_confidence_low is not None %}
-                          {{ paper.prediction_confidence_low|floatformat:0 }} - {{ paper.prediction_confidence_high|floatformat:0 }}
+                          <strong class="text-secondary">{{ paper.prediction_confidence_low|floatformat:0 }} - {{ paper.prediction_confidence_high|floatformat:0 }}</strong>
                         {% else %}
                           -
                         {% endif %}
                       </td>
-                      <td>{{ paper.uploaded_at|date:"M d, Y" }}</td>
+                      <td class="text-secondary">{{ paper.uploaded_at|date:"M d, Y" }}</td>
                       <td>
                         <div class="btn-group">
-                          <a href="#" class="btn btn-sm btn-outline-primary" target="_blank">
-                            <i class="fas fa-file-pdf"></i>
+                          <a href="{% url 'Research_paper_detail' paper.id %}" class="btn btn-sm" title="View Details">
+                            <i class="text-success fas fa-eye"></i>
                           </a>
                           {% if paper.status == 'draft' %}
-                            <a href="#" class="btn btn-sm btn-outline-success">
-                              <i class="fas fa-edit"></i>
+                            <a href="#" class="btn btn-sm" title="Edit Paper">
+                              <i class="text-danger fas fa-edit"></i>
                             </a>
                           {% endif %}
-                          <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailsModal{{ paper.id }}">
-                            <i class="fas fa-chart-line"></i>
+                          <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#detailsModal{{ paper.id }}" title="View Quick Stats">
+                            <i class="text-info fas fa-chart-line"></i>
                           </button>
                         </div>
                       </td>
                     </tr>
-                    
-                    <!-- Details Modal for each paper -->
-                    <div class="modal fade" id="detailsModal{{ paper.id }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ paper.id }}" aria-hidden="true">
-                      <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                          <div class="modal-header bg-light">
-                            <h5 class="modal-title" id="detailsModalLabel{{ paper.id }}">{{ paper.title }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                          </div>
-                          <div class="modal-body">
-                            <div class="row mb-3">
-                              <div class="col-md-6">
-                                <h6>Abstract</h6>
-                                <p class="text-muted">{{ paper.abstract|truncatewords:50 }}</p>
-                              </div>
-                              <div class="col-md-6">
-                                <h6>Authors</h6>
-                                <p class="text-muted">{{ paper.authors|join:", "|default:"N/A" }}</p>
-                                <h6>Keywords</h6>
-                                <p>
-                                  {% for keyword in paper.keywords|slice:":5" %}
-                                    <span class="badge bg-light text-dark me-1">{{ keyword }}</span>
-                                  {% endfor %}
-                                </p>
-                              </div>
-                            </div>
-                            
-                          </div>
-                          <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <a href="#" class="btn btn-primary" target="_blank">
-                              <i class="fas fa-file-pdf me-2"></i>View Document
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
           {% else %}
-            <div class="text-center py-5">
-              <img src="{% static 'images/empty-papers.svg' %}" alt="No papers" class="img-fluid mb-3" style="max-height: 150px;">
-              <h4>You haven't uploaded any papers yet</h4>
-              <p class="text-muted">Upload your research papers to get citation predictions and track their impact.</p>              <a href="{% url 'upload_document' %}" class="btn btn-primary mt-2">
+            <div class="text-center py-5 text-glass">
+              <i class="fas fa-file-alt fa-4x text-glass-muted mb-4"></i>
+              <h4 class="text-white">You haven't uploaded any papers yet</h4>
+              <p class="text-glass-muted">Upload your research papers to get citation predictions and track their impact.</p>
+              <a href="{% url 'upload_document' %}" class="btn btn-primary-glass mt-2">
                 <i class="fas fa-upload me-2"></i>Upload Your First Paper
               </a>
             </div>
           {% endif %}
-        </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Modals: Placed outside the table for correct HTML structure -->
+{% for paper in papers %}
+<div class="modal fade" id="detailsModal{{ paper.id }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ paper.id }}" aria-hidden="true" data-bs-theme="dark">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h5 class="modal-title text-white" id="detailsModalLabel{{ paper.id }}">{{ paper.title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <h6 class="text-white">Abstract</h6>
+            <p class="text-glass-muted">{{ paper.abstract|truncatewords:30 }}</p>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-white">Authors</h6>
+            <p class="text-glass-muted">{{ paper.authors|join:", "|default:"N/A" }}</p>
+            <h6 class="text-white">Keywords</h6>
+            <p>
+              {% for keyword in paper.keywords|slice:":5" %}
+                <span class="badge badge-glass me-1">{{ keyword }}</span>
+              {% endfor %}
+            </p>
+          </div>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary-glass btn-glass" data-bs-dismiss="modal">Close</button>
+        <a href="{% url 'Research_paper_detail' paper.id %}" class="btn btn-primary-glass btn-glass">
+          <i class="fas fa-eye me-2"></i>View Full Details
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
 {% endblock main_content %}
 
 {% block custom_js %}
-{{ block.super }}
 <script>
   // Initialize tooltips
   document.addEventListener("DOMContentLoaded", function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    $('#papersTable').DataTable({
+        "pageLength": 10,
+        "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+        "order": [[ 5, "desc" ]], // Sort by 'Uploaded' column descending
+        "columnDefs": [
+            { "orderable": false, "targets": 6 } // Disable sorting on 'Actions' column
+        ],
+        "language": {
+            "search": "", // remove search label
+            "searchPlaceholder": "Search papers..."
+        }
     });
   });
 </script>
