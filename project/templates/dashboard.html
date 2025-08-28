@@ -44,64 +44,64 @@
 
                     <!-- Statistics Cards -->
                     <div class="row mb-4">
-                        <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="col-lg-3 col-md-6 mb-4">
                             <div class="glass-card stat-card">
                                 <div class="p-3">
                                     <div class="d-flex justify-content-between">
                                         <div>
                                             <h4 class="stat-number">{{ dashboard_data.total_papers }}</h4>
-                                            <p class="mb-0 stat-label">Total Papers</p>
+                                            <p class="mb-0 stat-label">Uploaded Papers</p>
                                         </div>
                                         <div class="align-self-center">
-                                            <i class="bi bi-file-text fs-2"></i>
+                                            <i class="bi bi-file-earmark-text fs-2"></i>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="col-lg-3 col-md-6 mb-4">
                             <div class="glass-card stat-card">
                                 <div class="p-3">
                                     <div class="d-flex justify-content-between">
                                         <div>
-                                            <h4 class="stat-number">{{ dashboard_data.total_size_display }}</h4>
-                                            <p class="mb-0 stat-label">Total Size</p>
+                                            <h4 class="stat-number">{{ dashboard_data.total_wos_searches }}</h4>
+                                            <p class="mb-0 stat-label">WoS Searches</p>
                                         </div>
                                         <div class="align-self-center">
-                                            <i class="bi bi-hdd fs-2 stat-decrease"></i>
+                                            <i class="bi bi-search fs-2 stat-increase"></i>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="col-lg-3 col-md-6 mb-4">
                             <div class="glass-card stat-card">
                                 <div class="p-3">
                                     <div class="d-flex justify-content-between">
                                         <div>
-                                            <h4 class="stat-number">{{ dashboard_data.file_types|length }}</h4>
-                                            <p class="mb-0 stat-label">File Types</p>
+                                            <h4 class="stat-number">{{ dashboard_data.total_wos_predictions }}</h4>
+                                            <p class="mb-0 stat-label">WoS Predictions</p>
                                         </div>
                                         <div class="align-self-center">
-                                            <i class="bi bi-file-earmark fs-2 stat-decrease"></i>
+                                            <i class="bi bi-magic fs-2 stat-decrease"></i>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="col-lg-3 col-md-6 mb-4">
                             <div class="glass-card stat-card">
                                 <div class="p-3">
                                     <div class="d-flex justify-content-between">
                                         <div>
-                                            <h4 class="stat-number">{{ dashboard_data.average_keywords_per_paper|floatformat:1 }}</h4>
-                                            <p class="mb-0 stat-label">Avg Keywords</p>
+                                            <h4 class="stat-number">{{ dashboard_data.papers_with_predictions }}</h4>
+                                            <p class="mb-0 stat-label">Papers Predicted</p>
                                         </div>
                                         <div class="align-self-center">
-                                            <i class="bi bi-tags fs-2 stat-decrease"></i>
+                                            <i class="bi bi-brain fs-2 stat-increase"></i>
                                         </div>
                                     </div>
                                 </div>
@@ -114,7 +114,7 @@
                         <!-- File Types Chart -->
                         <div class="col-md-6 mb-4">
                             <div class="glass-card">
-                                <h5 class="text-white mb-3"><i class="bi bi-pie-chart-fill"></i> File Types Distribution</h5>
+                                <h5 class="text-white mb-3"><i class="bi bi-pie-chart-fill"></i> File Type Distribution</h5>
                                 <div class="chart-container">
                                     {% if dashboard_data.file_types %}
                                         <canvas id="fileTypesChart" width="400" height="200"></canvas>
@@ -124,7 +124,63 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Top Keywords Chart -->
+                        <!-- Publication Year Chart -->
+
+                        <div class="col-md-6">
+                        <div class="glass-card">
+                            <h5 class="text-white mb-3"><i class="bi bi-graph-up-arrow"></i> Recent WoS Predictions</h5>
+                            <div class="table-responsive">
+                                {% if dashboard_data.recent_wos_predictions %}
+                                    <div class="table-glass-wrapper">
+                                        <table class="table table-glass">
+                                            <thead>
+                                                <tr>
+                                                    <th>Model</th>
+                                                    <th>Paper UID</th>
+                                                    <th>Prediction</th>
+                                                    <th>Check Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for pred in dashboard_data.recent_wos_predictions %}
+                                                <tr>
+                                                    <td>
+                                                        {% if pred.model == 'LightGBM' %}<span class="badge bg-secondary">{{ pred.model }}</span>{% else %}<span class="badge bg-primary">{{ pred.model }}</span>{% endif %}
+                                                    </td>
+                                                    <td><a href="{% url 'wos_papers' %}?query={{ pred.uid }}&search_field=DO&count=1" class="text-secondary">{{ pred.uid|truncatechars:15 }}</a></td>
+                                                    <td><strong class="stat-increase">{{ pred.prediction }}</strong> <small class=" text-secondary text-glass-muted">{{ pred.extra }}</small></td>
+                                                    <td class="text-primary">{{ pred.date|date:"M d, Y" }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-5 text-glass">
+                                        <i class="bi bi-magic fs-1 text-glass-muted"></i>
+                                        <p class="text-glass-muted mt-3">No WoS predictions made yet</p>
+                                        <a href="{% url 'wos_papers' %}" class="btn btn-primary-glass">Search & Predict</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Uploads & Top Keywords Charts -->
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-4">
+                            <div class="glass-card">
+                                <h5 class="text-white mb-3"><i class="bi bi-calendar-week"></i> Monthly Uploads (Last 6 Months)</h5>
+                                <div class="chart-container">
+                                    {% if dashboard_data.monthly_uploads %}
+                                        <canvas id="monthlyUploadsChart" width="400" height="200"></canvas>
+                                    {% else %}
+                                        <p class="text-muted text-center">No upload data available</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-md-6 mb-4">
                             <div class="glass-card">
                                 <h5 class="text-white mb-3"><i class="bi bi-bar-chart-line-fill"></i> Top Keywords</h5>
@@ -139,27 +195,11 @@
                         </div>
                     </div>
 
-                    <!-- Monthly Uploads Chart -->
+                    <!-- Recent Papers & Recent Predictions -->
                     <div class="row mb-4">
-                        <div class="col-12">
+                        <div class="col-md-12">
                             <div class="glass-card">
-                                <h5 class="text-white mb-3"><i class="bi bi-calendar-week"></i> Monthly Uploads (Last 6 Months)</h5>
-                                <div class="chart-container">
-                                    {% if dashboard_data.monthly_uploads %}
-                                        <canvas id="monthlyUploadsChart" width="400" height="150"></canvas>
-                                    {% else %}
-                                        <p class="text-muted text-center">No upload data available for the last 6 months</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Papers -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="glass-card">
-                                <h5 class="text-white mb-3"><i class="bi bi-clock-history"></i> Recent Papers</h5>
+                                <h5 class="text-white mb-3"><i class="bi bi-clock-history"></i> Recent Uploads</h5>
                                 <div class="table-responsive">
                                     {% if dashboard_data.recent_papers %}
                                         <div class="table-glass-wrapper">
@@ -183,18 +223,18 @@
                                                             <a href="{% url 'Research_paper_detail' paper.id %}">{{ paper.filename }}
                                                                 <i class="bi bi-file-earmark-text"></i>
                                                             </a></strong></td>
-                                                        <td>{{ paper.title|truncatechars:50 }}</td>
+                                                        <td class="text-secondary">{{ paper.title|truncatechars:50 }}</td>
                                                         <td><span class="badge bg-primary">{{ paper.file_type|upper }}</span></td>
-                                                        <td>{{ paper.get_file_size_display }}</td>
-                                                        <td>
+                                                        <td class="text-secondary">{{ paper.get_file_size_display }}</td>
+                                                        <td class="">
                                                             {% for keyword in paper.keywords|slice:":2" %}
-                                                                <span class="badge-glass me-1">{{ keyword }}</span>
+                                                                <span class="badge-glass me-1 text-secondary">{{ keyword }}</span>
                                                             {% endfor %}
                                                             {% if paper.keywords|length > 2 %}
-                                                                <span class="text-glass-muted">+{{ paper.keywords|length|add:"-2" }} more</span>
+                                                                <span class="text-glass-muted text-secondary">+{{ paper.keywords|length|add:"-2" }} more</span>
                                                             {% endif %}
                                                         </td>
-                                                        <td>{{ paper.updated_at|date:"M d, Y H:i" }}</td>
+                                                        <td class="text-primary">{{ paper.updated_at|date:"M d, Y H:i" }}</td>
                                                     </tr>
                                                     {% endfor %}
                                                 </tbody>
@@ -211,6 +251,7 @@
                             </div>
                         </div>
                     </div>
+                    
 
                 </div>
             </div>
@@ -225,6 +266,7 @@
     {{ dashboard_data.file_types|json_script:"file-types-data" }}
     {{ dashboard_data.top_keywords|json_script:"top-keywords-data" }}
     {{ dashboard_data.monthly_uploads|json_script:"monthly-uploads-data" }}
+    {{ dashboard_data.publication_year_distribution|json_script:"publication-year-data" }}
     
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -263,14 +305,32 @@
                         datasets: [{
                             label: 'Keyword Count',
                             data: topKeywordsData.map(item => item[1]),
-                            backgroundColor: '#FFCE56'
+                            backgroundColor: '#FF6384'
                         }]
                     },
                     options: {
                         indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } }
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.8)' // Visible count color
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)' // Fainter grid lines
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.8)' // Visible keyword color
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            }
+                        }
                     }
                 });
             }
@@ -308,8 +368,60 @@
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    stepSize: 1
+                                    stepSize: 1,
+                                    color: 'rgba(255, 255, 255, 0.8)'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
                                 }
+                            },
+                            x: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.8)'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Publication Year Chart
+        const pubYearDataEl = document.getElementById('publication-year-data');
+        if (pubYearDataEl) {
+            const pubYearData = JSON.parse(pubYearDataEl.textContent);
+            if (pubYearData.length > 0) {
+                const pubYearCtx = document.getElementById('publicationYearChart').getContext('2d');
+                new Chart(pubYearCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: pubYearData.map(item => item.publication_year).reverse(),
+                        datasets: [{
+                            label: 'Papers Published',
+                            data: pubYearData.map(item => item.count).reverse(),
+                            backgroundColor: '#4BC0C0'
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                ticks: { 
+                                    stepSize: 1,
+                                    color: 'rgba(255, 255, 255, 0.8)'
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            x: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.8)'
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
                             }
                         }
                     }

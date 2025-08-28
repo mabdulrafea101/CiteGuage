@@ -14,10 +14,10 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.db.models import Count
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, ExtractYear
 from datetime import timedelta
 from collections import Counter
-from user.models import ResearchPaper
+from user.models import ResearchPaper, WOSSearchHistory, WOSLightGBMPrediction, WOSRidgePrediction
 from user.ml_utils import predict_from_text, MLModelError
 
 
@@ -478,7 +478,7 @@ class DocumentProcessorView(LoginRequiredMixin, View):
             logger.debug("Starting publication year extraction")
             # Look for 4-digit numbers that look like years (e.g., 1990-2024)
             current_year = timezone.now().year
-            matches = re.findall(r'\b(19[8-9]\d|20[0-2]\d)\b', text)
+            matches = re.findall(r'\b(19\d{2}|20\d{2})\b', text)
             if matches:
                 years = sorted([int(y) for y in set(matches) if int(y) <= current_year], reverse=True)
                 if years:
@@ -683,15 +683,40 @@ class DashboardView(LoginRequiredMixin, View):
             total_papers = user_papers.count()
 
             # Basic statistics
-            total_size = sum(paper.file_size for paper in user_papers)
+            total_wos_searches = WOSSearchHistory.objects.filter(user=user).count()
 
             # File type distribution
             file_types = {}
             for paper in user_papers:
                 file_types[paper.file_type] = file_types.get(paper.file_type, 0) + 1
 
-            # Recent papers (last 5)
-            recent_papers = user_papers.order_by('-updated_at')[:5]
+            # WOS Predictions
+            total_lgbm_predictions = WOSLightGBMPrediction.objects.filter(user=user).count()
+            total_ridge_predictions = WOSRidgePrediction.objects.filter(user=user).count()
+            total_wos_predictions = total_lgbm_predictions + total_ridge_predictions
+
+            # Recent WOS Predictions
+            recent_lgbm = WOSLightGBMPrediction.objects.filter(user=user).order_by('-predicted_at')[:5]
+            recent_ridge = WOSRidgePrediction.objects.filter(user=user).order_by('-predicted_at')[:5]
+
+            recent_predictions = []
+            for p in recent_lgbm:
+                recent_predictions.append({
+                    'model': 'LightGBM', 'uid': p.wos_uid, 'prediction': p.light_gbm_predicted_citations,
+                    'date': p.predicted_at, 'extra': f'{p.light_gbm_percentage}%'
+                })
+            for p in recent_ridge:
+                recent_predictions.append({
+                    'model': 'Ridge', 'uid': p.wos_uid, 'prediction': p.predicted_citations,
+                    'date': p.predicted_at, 'extra': f'CI: {p.ci_low:.0f}-{p.ci_high:.0f}' if p.ci_low is not None else ''
+                })
+            
+            recent_predictions.sort(key=lambda x: x['date'], reverse=True)
+
+            # Number of distinct WoS papers with predictions
+            lgbm_uids = WOSLightGBMPrediction.objects.filter(user=user).values_list('wos_uid', flat=True)
+            ridge_uids = WOSRidgePrediction.objects.filter(user=user).values_list('wos_uid', flat=True)
+            papers_with_predictions = len(set(list(lgbm_uids) + list(ridge_uids)))
 
             # Monthly upload trends (last 6 months)
             six_months_ago = timezone.now() - timedelta(days=180)
@@ -703,24 +728,24 @@ class DashboardView(LoginRequiredMixin, View):
                 count=Count('id')
             ).order_by('month')
 
-            # Top keywords
-            all_keywords = []
-            for paper in user_papers:
-                if paper.keywords:
-                    all_keywords.extend(paper.keywords)
-
-            keyword_counter = Counter(all_keywords)
-            top_keywords = keyword_counter.most_common(10)
+            # Publication Year Distribution
+            publication_years = user_papers.filter(
+                publication_year__isnull=False
+            ).values('publication_year').annotate(
+                count=Count('id')
+            ).order_by('-publication_year')[:10]
 
             dashboard_data = {
                 'total_papers': total_papers,
-                'total_size': total_size,
-                'total_size_display': self._format_file_size(total_size),
                 'file_types': file_types,
-                'recent_papers': recent_papers,
+                'recent_papers': user_papers.order_by('-updated_at')[:5],
                 'monthly_uploads': list(monthly_uploads),
-                'top_keywords': top_keywords,
-                'average_keywords_per_paper': len(all_keywords) / total_papers if total_papers > 0 else 0
+                'top_keywords': Counter([kw for p in user_papers for kw in p.keywords or []]).most_common(10),
+                'total_wos_predictions': total_wos_predictions,
+                'recent_wos_predictions': recent_predictions[:5],
+                'papers_with_predictions': papers_with_predictions,
+                'publication_year_distribution': list(publication_years),
+                'total_wos_searches': total_wos_searches
             }
 
             logger.debug(f"Dashboard statistics compiled: {total_papers} papers, {len(file_types)} file types")
@@ -734,13 +759,12 @@ class DashboardView(LoginRequiredMixin, View):
         """Return empty dashboard data structure"""
         return {
             'total_papers': 0,
-            'total_size': 0,
-            'total_size_display': '0 B',
             'file_types': {},
             'recent_papers': [],
             'monthly_uploads': [],
             'top_keywords': [],
-            'average_keywords_per_paper': 0
+            'total_wos_predictions': 0, 'recent_wos_predictions': [],
+            'papers_with_predictions': 0, 'publication_year_distribution': [], 'total_wos_searches': 0
         }
 
     def _format_file_size(self, size_bytes):
