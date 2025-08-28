@@ -12,10 +12,11 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.contrib import messages
 from django.conf import settings
-from django.http import JsonResponse
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
+from user.models import Paper, WOSLightGBMPrediction
 from collections import Counter
 from user.models import ResearchPaper
 from user.ml_utils import predict_from_text, MLModelError
@@ -100,7 +101,7 @@ class DocumentProcessorView(LoginRequiredMixin, View):
                 'is_updated': save_result['is_updated']
             }
             
-            return render(request, 'document_results.html', context)
+            return render(request, 'cite_guage/document_results.html', context)
                 
         except Exception as e:
             logger.exception(f"User {request.user} - Critical error in document processing")
@@ -586,7 +587,7 @@ class DocumentProcessorView(LoginRequiredMixin, View):
         try:
             logger.error(f"User {request.user} - Error: {error_message}")
             messages.error(request, error_message)
-            print(f"ERROR - User {request.user}: {error_message}")
+            # print(f"ERROR - User {request.user}: {error_message}")
             return render(request, template_name)
             
         except Exception as e:
@@ -614,24 +615,192 @@ class DashboardView(LoginRequiredMixin, View):
             
             logger.debug(f"User {request.user.username} - Dashboard data loaded successfully")
             
-            return render(request, 'dashboard.html', {
+            return render(request, 'cite_guage/dashboard.html', {
                 'dashboard_data': dashboard_data['data']
             })
             
         except Exception as e:
             logger.exception(f"User {request.user.username} - Critical error in dashboard view")
             messages.error(request, 'Error loading dashboard.')
-            return render(request, 'dashboard.html', {
+            return render(request, 'cite_guage/dashboard.html', {
                 'dashboard_data': self._get_empty_dashboard_data()
             })
     
     def _get_dashboard_statistics(self, user):
-        """Get comprehensive dashboard statistics"""
+        """Get comprehensive dashboard statistics for the main dashboard."""
         try:
             logger.debug(f"Fetching dashboard statistics for user: {user.username}")
             
-            # Get user's research papers
-            user_papers = ResearchPaper.objects.filter(user=user)
+            # Papers uploaded by the user
+            user_papers = Paper.objects.filter(user=user)
+            total_papers = user_papers.count()
+
+            # Predictions made
+            wos_predictions_count = WOSLightGBMPrediction.objects.filter(user=user).count()
+            paper_predictions_count = user_papers.filter(predicted_citations_2y__isnull=False).count()
+            predictions_made = wos_predictions_count + paper_predictions_count
+
+            # Latest Prediction
+            latest_prediction = None
+            latest_wos_pred = WOSLightGBMPrediction.objects.filter(user=user).order_by('-predicted_at').first()
+            latest_paper_pred = user_papers.filter(predicted_at__isnull=False).order_by('-predicted_at').first()
+            
+            # Find the most recent prediction among all types
+            latest_preds = [p for p in [latest_wos_pred, latest_paper_pred] if p]
+            if latest_preds:
+                latest_preds.sort(key=lambda p: p.predicted_at, reverse=True)
+                latest = latest_preds[0]
+                if isinstance(latest, WOSLightGBMPrediction):
+                    latest_prediction = {
+                        'title': f"WOS Paper: {latest.wos_uid}",
+                        'predicted_citations': latest.light_gbm_predicted_citations,
+                        'type': 'wos'
+                    }
+                else: # Paper
+                    latest_prediction = {
+                        'title': latest.title,
+                        'predicted_citations': latest.predicted_citations_2y,
+                        'confidence_low': latest.prediction_confidence_low,
+                        'confidence_high': latest.prediction_confidence_high,
+                        'type': 'uploaded'
+                    }
+
+            # Recent papers for display
+            recent_papers = user_papers.order_by('-upload_date')[:3]
+
+            dashboard_data = {
+                'total_papers': total_papers,
+                'predictions_made': predictions_made,
+                'latest_prediction': latest_prediction,
+                'recent_papers': recent_papers,
+                'active_papers': user_papers.filter(status='active').count(), # Assuming 'active' status exists
+                'h_index': user.researcher_profile.h_index if hasattr(user, 'researcher_profile') else 0
+            }
+            
+            return {'success': True, 'data': dashboard_data}
+            
+        except Exception as e:
+            logger.error(f"Error fetching dashboard statistics: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _get_empty_dashboard_data(self):
+        """Return empty dashboard data structure"""
+        return {
+            'total_papers': 0,
+            'active_papers': 0,
+            'h_index': 0,
+            'predictions_made': 0,
+            'latest_prediction': None,
+            'recent_papers': []
+        }
+
+
+class PaperDetailView(LoginRequiredMixin, DetailView):
+    model = Paper
+    template_name='cite_guage/research_paper_detail.html'
+    context_object_name = 'paper'
+    login_url = '/user/login/'
+
+    def get_queryset(self):
+        # Ensure users can only see their own papers
+        return Paper.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle prediction request for the research paper.
+        """
+        self.object = self.get_object()
+        paper = self.object
+        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
+
+        context = self.get_context_data(object=paper)
+
+        try:
+            # The model has a property to get keywords as a string
+            keywords_str = paper.keywords
+
+            # Call the prediction function from ml_utils
+            prediction_result = predict_from_text(
+                title=paper.title,
+                abstract=paper.abstract,
+                keywords=keywords_str
+            )
+
+            if prediction_result:
+                paper.predicted_citations_2y = prediction_result.get('predicted')
+                paper.prediction_confidence_low = prediction_result.get('ci_low')
+                paper.prediction_confidence_high = prediction_result.get('ci_high')
+                paper.predicted_at = timezone.now()
+                paper.save()
+                messages.success(request, "Citation prediction generated successfully.")
+            else:
+                messages.warning(request, "Prediction model did not return a result.")
+
+            context['prediction'] = prediction_result
+
+        except (ValueError, MLModelError) as e:
+            error_message = f"Could not generate prediction: {e}"
+            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
+            messages.error(request, error_message)
+
+        except Exception as e:
+            error_message = "An unexpected error occurred during prediction. Please check the logs."
+            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
+            messages.error(request, error_message)
+
+        return self.render_to_response(context)
+
+
+class ResearchPaperDetail(LoginRequiredMixin, DetailView):
+    model = ResearchPaper
+    template_name='cite_guage/research_paper_detail.html'
+    context_object_name = 'paper'
+    login_url = '/user/login/'
+
+    def get_queryset(self):
+        # Ensure users can only see their own papers
+        return ResearchPaper.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle prediction request for the research paper.
+        """
+        self.object = self.get_object()
+        paper = self.object
+        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
+        print(f"INFO: User {request.user.email} requested prediction for paper ID: {paper.id}")
+
+        context = self.get_context_data(object=paper)
+
+        try:
+            # The model has a property to get keywords as a string
+            keywords_str = paper.keywords_as_string
+
+            # Call the prediction function from ml_utils
+            prediction_result = predict_from_text(
+                title=paper.title,
+                abstract=paper.abstract,
+                keywords=keywords_str
+            )
+
+            logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
+            print(f"INFO: Prediction successful for paper ID {paper.id}: {prediction_result}")
+            messages.success(request, "Citation prediction generated successfully.")
+            context['prediction'] = prediction_result
+
+        except (ValueError, MLModelError) as e:
+            error_message = f"Could not generate prediction: {e}"
+            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
+            print(f"ERROR: Prediction failed for paper ID {paper.id}: {error_message}")
+            messages.error(request, error_message)
+
+        except Exception as e:
+            error_message = "An unexpected error occurred during prediction. Please check the logs."
+            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
+            print(f"CRITICAL: Unexpected prediction error for paper ID {paper.id}: {e}")
+            messages.error(request, error_message)
+
+        return self.render_to_response(context)
             
             # Basic statistics
             total_papers = user_papers.count()

@@ -26,7 +26,7 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'email', 'password1', 'password2')
+        fields = ('email', 'first_name', 'last_name')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,6 +34,14 @@ class CustomUserCreationForm(UserCreationForm):
             field.widget.attrs['class'] = 'form-control'
             if field_name in ['password1', 'password2']:
                 field.widget.attrs['placeholder'] = '••••••••'
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.first_name = self.cleaned_data.get("first_name")
+        user.last_name = self.cleaned_data.get("last_name")
+        if commit:
+            user.save()
+        return user
 
 
 class CustomAuthenticationForm(AuthenticationForm):
@@ -63,13 +71,22 @@ class CustomUserChangeForm(UserChangeForm):
 
 
 class ResearcherProfileForm(forms.ModelForm):
-    """Form for editing ResearcherProfile model without name fields."""
+    """Form for creating and editing the full ResearcherProfile."""
     class Meta:
         model = ResearcherProfile
-        fields = ['institution', 'bio']
+        # Exclude fields that are set automatically or not meant for user input
+        exclude = ['user', 'h_index', 'i10_index', 'citation_count']
         widgets = {
-            'institution': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Institution'}),
-            'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Short bio'}),
+            'profile_picture': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'institution': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., University of Example'}),
+            'department': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Department of Computer Science'}),
+            'position': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Assistant Professor'}),
+            'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'A short professional biography...'}),
+            'research_interests': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Machine Learning, Data Science'}),
+            'website': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://example.com'}),
+            'orcid_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0000-0000-0000-0000'}),
+            'google_scholar_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Your Google Scholar ID'}),
+            'research_gate_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://www.researchgate.net/profile/Your-Profile'}),
         }
 
 
@@ -181,4 +198,3 @@ class WOSSearchForm(forms.Form):
     )
 
 # To search Best Relevant and Cited papers
-

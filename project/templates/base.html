@@ -44,7 +44,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-glass" style="position: relative; z-index: 1000;">
+    <nav class="navbar navbar-expand-lg navbar-glass">
 
       <div class="container-fluid">
         <a class="navbar-brand" href="{% url 'dashboard' %}">
@@ -84,31 +84,30 @@
             </li>
           </ul>
 
-          <ul class="navbar-nav">
+          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+            {% if request.user.is_authenticated %}
             <li class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle"
                 href="#"
+                id="profileDropdown"
                 role="button"
                 data-bs-toggle="dropdown"
+                aria-expanded="false"
               >
-                <i class="fas fa-user-circle me-1"></i>Profile
+                <i class="fas fa-user-circle me-1"></i>
+                {{ request.user.first_name|default:request.user.email }}
               </a>
-              <ul class="dropdown-menu">
-                
-                  {% if researcher_profile %}
-                  <li>
-                    <a class="dropdown-item" href="{% url 'researcher_profile' %}"
-                    ><i class="fas fa-cog me-2"></i>{{request.user.first_name}}</a
-                  >
-                  </li>
-                  {% endif %}
-                  
-                
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                 <li>
-                  <a class="dropdown-item" href="{% url 'wos_papers' %}"
-                    ><i class="fas fa-chart-line me-2"></i>My Research</a
-                  >
+                  <a class="dropdown-item" href="{% url 'researcher_profile' %}">
+                    <i class="fas fa-user-alt me-2"></i>My Profile
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{% url 'my_papers' %}">
+                    <i class="fas fa-file-alt me-2"></i>My Papers
+                  </a>
                 </li>
                 <li><hr class="dropdown-divider" /></li>
                 <li>
@@ -119,9 +118,20 @@
                     </button>
                   </form>
                 </li>
-                 
               </ul>
             </li>
+            {% else %}
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'login' %}">
+                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'signup' %}">
+                    <i class="fas fa-user-plus me-2"></i>Sign Up
+                </a>
+            </li>
+            {% endif %}
           </ul>
         </div>
       </div>
@@ -136,16 +146,15 @@
       </div>
     </footer>
 
-    <!-- Bootstrap JS -->
+    <!-- Core JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    
     <!-- Custom Scripts -->
     <script src=" {% static 'js/style.js' %}"></script>
-    <!-- In base.html, inside the head section -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- <script src="{% static 'js/file-upload.js' %}"></script> -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Page-specific JS -->
     {% block custom_js %} 
-
     <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/2.0.8/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.min.js"></script>

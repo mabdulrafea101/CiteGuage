@@ -544,3 +544,28 @@ border: 1px solid rgba(255, 71, 87, 0.3);
   border-radius: 5px;
   padding: 5px 10px;
 }
+
+/* Custom list group for glass effect */
+.list-group-flush-glass .list-group-item {
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.list-group-flush-glass .list-group-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.list-group-flush-glass .list-group-item:last-child {
+  border-bottom: 0;
+}
+
+/* Custom border for glass cards */
+.border-glass-muted {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  opacity: 0.5;
+  margin-top: 0;
+}
+}

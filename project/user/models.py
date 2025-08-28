@@ -3,6 +3,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -46,21 +48,78 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}".strip() or self.email
+        """Return the user's full name or email."""
+        return self.get_full_name().strip() or self.email
+
+    def get_full_name(self):
+        """
+        Return the first_name plus the last_name, with a space in between.
+        """
+        return f"{self.first_name} {self.last_name}".strip()
 
 
 
 # ---------------------------
 # User Profile
 # ---------------------------
+def profile_picture_path(instance, filename):
+    """Generate file path for new profile pictures."""
+    # file will be uploaded to MEDIA_ROOT/profile_pics/user_<id>/<filename>
+    return f'profile_pics/user_{instance.user.id}/{filename}'
+
+
 class ResearcherProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='researcher_profile')
+
+    # Personal & Professional Info
+    profile_picture = models.ImageField(upload_to=profile_picture_path, blank=True, null=True)
     institution = models.CharField(max_length=255, blank=True)
+    department = models.CharField(max_length=255, blank=True)
+    position = models.CharField(max_length=255, blank=True, help_text="e.g., PhD Candidate, Assistant Professor")
     bio = models.TextField(blank=True)
+
+    # Research Info
+    research_interests = models.TextField(blank=True, help_text="Comma-separated list of interests")
+
+    # External Links
+    website = models.URLField(max_length=255, blank=True)
+    orcid_id = models.CharField(max_length=50, blank=True, help_text="Format: 0000-0000-0000-0000")
+    google_scholar_id = models.CharField(max_length=50, blank=True)
+    research_gate_url = models.URLField(max_length=255, blank=True)
+
+    # Metrics (can be populated later from external sources)
+    h_index = models.PositiveIntegerField(default=0, blank=True)
+    i10_index = models.PositiveIntegerField(default=0, blank=True)
+    citation_count = models.PositiveIntegerField(default=0, blank=True)
 
     def __str__(self):
         return self.user.get_full_name() or self.user.email
 
+    @property
+    def full_name(self):
+        """Returns the user's full name."""
+        return self.user.get_full_name()
+
+    @property
+    def first_name(self):
+        """Returns the user's first name."""
+        return self.user.first_name
+
+    @property
+    def last_name(self):
+        """Returns the user's last name."""
+        return self.user.last_name
+
+    @property
+    def research_interests_list(self):
+        """Returns a sorted list of research interests."""
+        if not self.research_interests:
+            return []
+        return sorted([interest.strip() for interest in self.research_interests.split(',') if interest.strip()])
+
+    @property
+    def total_publications(self):
+        return self.user.papers.count()
 
 
 # ---------------------------
@@ -81,6 +140,7 @@ class Paper(models.Model):
     predicted_citations_2y = models.IntegerField(blank=True, null=True)
     prediction_confidence_low = models.IntegerField(blank=True, null=True)
     prediction_confidence_high = models.IntegerField(blank=True, null=True)
+    predicted_at = models.DateTimeField(blank=True, null=True)
 
     upload_date = models.DateTimeField(auto_now_add=True)
 
@@ -115,7 +175,7 @@ class WOSLightGBMPrediction(models.Model):
     original_citations = models.IntegerField(help_text="Original citation count of the paper")
     light_gbm_percentage = models.IntegerField(default=random.randint(15, 30), help_text="Random percentage used for the prediction")
     light_gbm_predicted_citations = models.IntegerField(help_text="Citations predicted based on the LightGBM percentage")
-    predicted_at = models.DateTimeField(auto_now_add=True)
+    predicted_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name = "WOS LightGBM Prediction"
@@ -128,6 +188,18 @@ class WOSLightGBMPrediction(models.Model):
 
 
 
+
+@receiver(post_save, sender=CustomUser)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create a researcher profile automatically when a new user is created."""
+    if created:
+        ResearcherProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=CustomUser)
+def save_user_profile(sender, instance, **kwargs):
+    """Save the profile when the user is saved."""
+    if hasattr(instance, 'researcher_profile'):
+        instance.researcher_profile.save()
 
 
 

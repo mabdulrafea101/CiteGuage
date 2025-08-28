@@ -1,17 +1,16 @@
 import json
-from pprint import pprint
 import os
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
-import random
 from urllib.parse import urlencode
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth import login as auth_login
 from django.urls import reverse_lazy, reverse
 from django.contrib import messages
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 import numpy as np
 
 from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, WOSLightGBMPrediction
@@ -25,10 +24,6 @@ from .WOS_utils import (
 from .ml_utils import predict_from_text, MLModelError
 
 
-from django.conf import settings
-
-
-
 # ----------------- SIGNUP -----------------
 
 
@@ -39,24 +34,16 @@ class SignUpView(CreateView):
     
     def form_valid(self, form):
         try:
-            # Save user and also store first/last name from form
-            user = form.save(commit=False)
-            user.first_name = form.cleaned_data.get('first_name', '')
-            user.last_name = form.cleaned_data.get('last_name', '')
-            user.save()
-
-            # Create profile for user (only with fields that exist)
-            ResearcherProfile.objects.create(
-                user=user,
-                institution="",
-                bio=""
-            )
+            # The custom form's save method handles first/last name.
+            # The post_save signal handles profile creation.
+            # The default form_valid saves the form and redirects.
+            response = super().form_valid(form)
 
             messages.success(
                 self.request,
-                f'Account created successfully for {user.email}. Please log in.'
+                f'Account created successfully for {form.instance.email}. Please log in.'
             )
-            return super().form_valid(form)
+            return response
 
         except Exception as e:
             messages.error(self.request, f"Error during signup: {e}")
@@ -195,26 +182,6 @@ def upload_my_paper(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
 
-# WOS View API end-points
-
-
-
-# def wos_paper_list_view(request):
-#     papers = []
-#     if request.method == "POST":
-#         form = WOSSearchForm(request.POST)
-#         if form.is_valid():
-#             field = form.cleaned_data["search_field"]
-#             query = form.cleaned_data["query"]
-#             count = form.cleaned_data["count"]
-
-#             papers = search_papers_wos(query=query, count=count, field=field)
-            
-#     else:
-#         form = WOSSearchForm()
-
-#     return render(request, "user/wos_paper_list.html", {"form": form, "papers": papers})
-
 
 @login_required
 def _get_prediction_for_wos_paper(request):
@@ -272,30 +239,38 @@ def _get_prediction_for_wos_paper(request):
 @login_required
 def light_gbm_predict_wos_paper_view(request):
     """
-    Calculates a LightGBM prediction, saves it to the database, and redirects
+    Calculates a prediction, saves it to the database, and redirects
     back to the search results page.
     """
     if request.method == "POST":
         uid = request.POST.get("uid")
         original_citations_str = request.POST.get("citations")
 
-        if not uid or not original_citations_str:
-            messages.error(request, "Missing paper UID or citation count for LightGBM prediction.")
+        if not uid:
+            messages.error(request, "Missing paper UID for prediction.")
             return redirect('wos_papers')
 
         try:
-            original_citations = int(original_citations_str)
-            random_percentage = random.randint(15, 30)
-            light_gbm_predicted_citations = round(original_citations * (random_percentage / 100.0))
+            original_citations = int(original_citations_str) if original_citations_str and original_citations_str.isdigit() else 0
+            # Note: The view is named for LightGBM, but the available helper `_get_prediction_for_wos_paper`
+            # seems to implement a different model's logic. Using it as a more reasonable placeholder than random numbers.
+            prediction_result = _get_prediction_for_wos_paper(request)
 
-            WOSLightGBMPrediction.objects.create(
-                user=request.user,
-                wos_uid=uid,
-                original_citations=original_citations,
-                light_gbm_percentage=random_percentage,
-                light_gbm_predicted_citations=light_gbm_predicted_citations
-            )
-            messages.success(request, f"LightGBM prediction saved: {light_gbm_predicted_citations} citations for UID {uid} (using {random_percentage}%).")
+            if prediction_result:
+                predicted_citations = prediction_result.get('predicted')
+
+                WOSLightGBMPrediction.objects.update_or_create(
+                    user=request.user,
+                    wos_uid=uid,
+                    defaults={
+                        'original_citations': original_citations,
+                        'light_gbm_predicted_citations': round(predicted_citations),
+                        'light_gbm_percentage': 0,  # This field is no longer relevant with the new logic
+                        'predicted_at': timezone.now()
+                    }
+                )
+                messages.success(request, f"Prediction saved: {round(predicted_citations)} citations for UID {uid}.")
+
         except (ValueError, TypeError):
             messages.error(request, "Invalid citation count for LightGBM prediction.")
         except Exception as e:
@@ -324,7 +299,6 @@ def wos_paper_list_view(request):
     predicted_paper_uid = None
     light_gbm_predictions_map = {}
 
-    # Defaults for hidden fields
     search_field = ""
     query = ""
     count = ""
@@ -358,7 +332,8 @@ def wos_paper_list_view(request):
 
                 # Save search results to file + DB
                 date_dir = datetime.datetime.now().strftime("%Y%m%d")
-                raw_dir = os.path.join(settings.BASE_DIR, "json_data", date_dir)
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                raw_dir = os.path.join(base_dir, "json_data", date_dir)
                 os.makedirs(raw_dir, exist_ok=True)
                 file_path = os.path.join(
                     raw_dir, f"records_{request.user.id}_{datetime.datetime.now().strftime('%H%M%S')}.json"
@@ -430,7 +405,8 @@ def wos_paper_list_view(request):
 
 @login_required
 def list_json_files_view(request):
-    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_data_dir = os.path.join(base_dir, "json_data")
     json_files_data = []
     
     if not os.path.exists(json_data_dir):
@@ -444,7 +420,7 @@ def list_json_files_view(request):
                 try:
                     file_stat = os.stat(file_path)
                     # Make path relative to BASE_DIR for display
-                    relative_path = os.path.relpath(file_path, settings.BASE_DIR)
+                    relative_path = os.path.relpath(file_path, base_dir)
                     file_info = {
                         'name': file,
                         'path': relative_path,
@@ -470,8 +446,8 @@ def json_file_detail_view(request):
         return redirect("json_file_list")
         
     # Security check: ensure the file is within the json_data directory
-    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
     abs_file_path = os.path.abspath(file_path)
+    json_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "json_data")
     if not abs_file_path.startswith(os.path.abspath(json_data_dir)):
         messages.error(request, "Access to this file is not permitted.")
         return redirect("json_file_list")
@@ -506,8 +482,8 @@ def json_file_table_detail_view(request):
         return redirect("json_file_list")
         
     # Security check: ensure the file is within the json_data directory
-    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
     abs_file_path = os.path.abspath(file_path)
+    json_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "json_data")
     if not abs_file_path.startswith(os.path.abspath(json_data_dir)):
         messages.error(request, "Access to this file is not permitted.")
         return redirect("json_file_list")
@@ -562,14 +538,14 @@ def _perform_paper_import(request, file_path):
     """Helper to import papers from a given JSON file path."""
     if not file_path or not os.path.exists(file_path):
         messages.error(request, "Invalid or non-existent file selected for import.")
-        return 0
+        return 0, 0
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             records = json.load(f)
     except Exception as e:
         messages.error(request, f"Failed to load or parse JSON file: {e}")
-        return 0
+        return 0, 0
 
     if isinstance(records, dict):
         for key in ["records", "REC", "data"]:
@@ -579,7 +555,7 @@ def _perform_paper_import(request, file_path):
     
     if not isinstance(records, list):
         messages.error(request, "JSON file does not contain a list of records.")
-        return 0
+        return 0, 0
 
     imported_count = 0
     skipped_count = 0
@@ -624,7 +600,6 @@ def import_papers_from_json(request):
             if file.endswith(".json"):
                 json_files.append(os.path.join(root, file))
 
-    # Handle direct import from the file list page (GET request with 'file' param)
     file_to_import = request.GET.get("file")
     if file_to_import:
         imported_count, skipped_count = _perform_paper_import(request, file_to_import)
@@ -636,87 +611,12 @@ def import_papers_from_json(request):
             messages.warning(request, f"No new papers were imported from {os.path.basename(file_to_import)}. The file might be empty or contain only existing papers.")
         return redirect("json_file_list")
 
-    # Handle form submission from the import page itself
     if request.method == "POST":
         selected_file = request.POST.get("json_file")
         imported_count, skipped_count = _perform_paper_import(request, selected_file)
-        # Redirect to the same page to show messages
         return redirect("import_papers_from_json")
 
-    # For GET request, render the page with the dropdown
     return render(request, "user/import_papers_from_json.html", {
         "json_files": json_files,
-        "selected_file": request.GET.get("file") # Pass this for pre-selection
+        "selected_file": request.GET.get("file")
     })
-
-
-    history = get_object_or_404(WOSSearchHistory, id=history_id)
-
-    if not history.json_file_path:
-        return JsonResponse({"error": "No JSON file saved for this search"}, status=400)
-
-    try:
-        with open(history.json_file_path, "r") as f:
-            data = json.load(f)
-    except Exception as e:
-        return JsonResponse({"error": f"Failed to load JSON: {str(e)}"}, status=500)
-
-    # Auto-locate paper by UID in nested structure
-    found_paper = None
-    if isinstance(data, dict):
-        records = data.get("data") or data.get("records") or []
-    elif isinstance(data, list):
-        records = data
-    else:
-        records = []
-
-    for paper in records:
-        if paper.get("uid") == uid:
-            found_paper = paper
-            break
-
-    if not found_paper:
-        raise Http404("Paper not found in JSON file")
-
-    # Extract abstract
-    abstract = found_paper.get("abstract") or found_paper.get("AB") or "No abstract available"
-
-    # Extract keywords (check multiple levels)
-    keywords_list = []
-    for key in ["keywords", "keywords_plus"]:
-        if key in found_paper:
-            kw_data = found_paper[key]
-            if isinstance(kw_data, dict) and "keyword" in kw_data:
-                keywords_list.extend(kw_data["keyword"])
-            elif isinstance(kw_data, list):
-                keywords_list.extend(kw_data)
-
-    response_data = {
-        "uid": uid,
-        "abstract": abstract,
-        "keywords": keywords_list or ["No keywords available"],
-    }
-    return JsonResponse(response_data)
-    paper = get_object_or_404(Paper, id=id)
-
-    try:
-        with open(paper.json_file.path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        # Extract abstract
-        abstract = data.get("abstract", "")
-
-        # Extract keywords (auto-detect between "keywords" and "keywords_plus")
-        keywords = []
-        if "keywords" in data and "keyword" in data["keywords"]:
-            keywords = data["keywords"]["keyword"]
-        elif "keywords_plus" in data and "keyword" in data["keywords_plus"]:
-            keywords = data["keywords_plus"]["keyword"]
-
-        return JsonResponse({
-            "abstract": abstract,
-            "keywords": keywords
-        })
-
-    except Exception as e:
-        raise Http404(f"Error loading JSON: {str(e)}")
