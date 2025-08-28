@@ -5,10 +5,8 @@ from .views import (
     ResearcherProfileCreateView,
     ResearcherProfileUpdateView,
     ResearcherProfileDetailView,
-    PaperCreateView,
-    PaperListView,
-    upload_my_paper,
-    wos_paper_list_view, 
+    MyPapersView,
+    wos_paper_list_view,
     light_gbm_predict_wos_paper_view,
     import_papers_from_json,
     json_file_detail_view,
@@ -29,9 +27,7 @@ urlpatterns = [
     path('profile/', ResearcherProfileDetailView.as_view(), name='researcher_profile'),
 
     # Papers
-    path('papers/upload/', PaperCreateView.as_view(), name='upload_paper_page'),  # form page
-    path('papers/', PaperListView.as_view(), name='my_papers'),
-    path('papers/api/upload/', upload_my_paper, name='upload_my_paper'),  # AJAX/JSON API endpoint
+    path('papers/', MyPapersView.as_view(), name='my_papers'),
 
     path("wos-papers/", wos_paper_list_view, name="wos_papers"),  # List papers from WOS
     path("papers/import-json/", import_papers_from_json, name="import_papers_from_json"),

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
 from django.utils.translation import gettext_lazy as _
-from .models import CustomUser, ResearcherProfile, Paper
+from .models import CustomUser, ResearcherProfile
 
 
 
@@ -90,67 +90,67 @@ class ResearcherProfileForm(forms.ModelForm):
         }
 
 
-class PaperForm(forms.ModelForm):
-    """Form for uploading and editing paper details."""
+# class PaperForm(forms.ModelForm):
+#     """Form for uploading and editing paper details."""
 
-    authors = forms.CharField(
-        max_length=1000,
-        required=False,
-        help_text="Comma-separated list of author names (e.g., John Doe, Jane Smith)",
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., John Doe, Jane Smith'})
-    )
+#     authors = forms.CharField(
+#         max_length=1000,
+#         required=False,
+#         help_text="Comma-separated list of author names (e.g., John Doe, Jane Smith)",
+#         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., John Doe, Jane Smith'})
+#     )
 
-    class Meta:
-        model = Paper
-        exclude = (
-            'submitted_by',
-            'wos_ut_id',
-            'actual_citation_count',
-            'last_wos_update',
-            'venue_h_index',
-            'venue_i10_index',
-            'venue_impact_factor',
-            'abstract_readability_score',
-            'title_length',
-            'keyword_relevance_score',
-            'tf_idf_vector',
-            'predicted_citations_2y',
-            'prediction_confidence_interval_low',
-            'prediction_confidence_interval_high',
-            'visibility_category',
-            'key_feature_contributions',
-            'upload_date',
-            'last_updated',
-        )
-        widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter paper title'}),
-            'abstract': forms.Textarea(attrs={'class': 'form-control', 'rows': 8, 'placeholder': 'Enter paper abstract'}),
-            'keywords': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Comma-separated keywords'}),
-            'venue_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Journal or conference name'}),
-            'publication_year': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g., 2023', 'min': 1900, 'max': 2100}),
-            'pdf_file': forms.FileInput(attrs={'class': 'form-control'}),
-        }
+#     class Meta:
+#         model = Paper
+#         exclude = (
+#             'submitted_by',
+#             'wos_ut_id',
+#             'actual_citation_count',
+#             'last_wos_update',
+#             'venue_h_index',
+#             'venue_i10_index',
+#             'venue_impact_factor',
+#             'abstract_readability_score',
+#             'title_length',
+#             'keyword_relevance_score',
+#             'tf_idf_vector',
+#             'predicted_citations_2y',
+#             'prediction_confidence_interval_low',
+#             'prediction_confidence_interval_high',
+#             'visibility_category',
+#             'key_feature_contributions',
+#             'upload_date',
+#             'last_updated',
+#         )
+#         widgets = {
+#             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter paper title'}),
+#             'abstract': forms.Textarea(attrs={'class': 'form-control', 'rows': 8, 'placeholder': 'Enter paper abstract'}),
+#             'keywords': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Comma-separated keywords'}),
+#             'venue_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Journal or conference name'}),
+#             'publication_year': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g., 2023', 'min': 1900, 'max': 2100}),
+#             'pdf_file': forms.FileInput(attrs={'class': 'form-control'}),
+#         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['pdf_file'].help_text = "Upload a PDF file of your research paper."
-        self.fields['title'].help_text = "Required if no PDF is uploaded."
-        self.fields['abstract'].help_text = "Required if no PDF is uploaded."
-        self.fields['keywords'].help_text = "Required if no PDF is uploaded."
-        self.fields['venue_name'].help_text = "Name of the journal or conference."
-        self.fields['publication_year'].help_text = "Year of publication."
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.fields['pdf_file'].help_text = "Upload a PDF file of your research paper."
+#         self.fields['title'].help_text = "Required if no PDF is uploaded."
+#         self.fields['abstract'].help_text = "Required if no PDF is uploaded."
+#         self.fields['keywords'].help_text = "Required if no PDF is uploaded."
+#         self.fields['venue_name'].help_text = "Name of the journal or conference."
+#         self.fields['publication_year'].help_text = "Year of publication."
 
-    def clean(self):
-        cleaned_data = super().clean()
-        pdf_file = cleaned_data.get('pdf_file')
-        required_fields = ['title', 'abstract', 'keywords', 'venue_name', 'publication_year']
+#     def clean(self):
+#         cleaned_data = super().clean()
+#         pdf_file = cleaned_data.get('pdf_file')
+#         required_fields = ['title', 'abstract', 'keywords', 'venue_name', 'publication_year']
 
-        if not pdf_file:
-            for field in required_fields:
-                if not cleaned_data.get(field):
-                    self.add_error(field, f"{field.replace('_', ' ').capitalize()} is required if no PDF is uploaded.")
+#         if not pdf_file:
+#             for field in required_fields:
+#                 if not cleaned_data.get(field):
+#                     self.add_error(field, f"{field.replace('_', ' ').capitalize()} is required if no PDF is uploaded.")
 
-        return cleaned_data
+#         return cleaned_data
 
 
 

@@ -100,10 +100,10 @@
               <li class="list-group-item">
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
-                    <a href="{% url 'my_papers' %}" class="text-white text-decoration-none">{{ paper.title }}</a>
+                    <a href="{% url 'my_papers' %}" class="text-secondary text-decoration-none">{{ paper.title }}</a>
                     <small class="d-block text-glass-muted">{{ paper.publication_year }}</small>
                   </div>
-                  <span class="badge badge-glass">{{ paper.predicted_citations_2y|default:"N/A" }}</span>
+                  <span class="badge badge-glass ext-secondary">{{ paper.predicted_citations|default:"N/A" }}</span>
                 </div>
               </li>
             {% endfor %}

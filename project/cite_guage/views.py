@@ -6,27 +6,19 @@ import docx
 import re
 
 from django.shortcuts import render, redirect
-from django.views.generic import TemplateView, DetailView
+from django.views.generic import DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.contrib import messages
-from django.conf import settings
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-
-from user.models import Paper, WOSLightGBMPrediction
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from datetime import timedelta
 from collections import Counter
 from user.models import ResearchPaper
 from user.ml_utils import predict_from_text, MLModelError
-
-# class DashboardView(LoginRequiredMixin, TemplateView):
-#     template_name = 'cite_guage/dashboard.html'
-#     login_url = '/user/login/'  # Redirect to login if not authenticated
-
-
-
 
 
 # Set up logging for debugging
@@ -332,6 +324,8 @@ class DocumentProcessorView(LoginRequiredMixin, View):
             title_result = self._extract_title(lines, filename)
             abstract_result = self._extract_abstract(text, lines)
             keywords_result = self._extract_keywords(text)
+            authors_result = self._extract_authors(text, lines)
+            year_result = self._extract_publication_year(text)
             
             # Check if all extractions were successful
             if not all([title_result['success'], abstract_result['success'], keywords_result['success']]):
@@ -347,7 +341,9 @@ class DocumentProcessorView(LoginRequiredMixin, View):
             processed_data = {
                 'title': title_result['data'],
                 'abstract': abstract_result['data'],
-                'keywords': keywords_result['data']
+                'keywords': keywords_result['data'],
+                'authors': authors_result['data'],
+                'publication_year': year_result['data']
             }
             
             logger.info(f"Content analysis completed successfully for: {filename}")
@@ -444,6 +440,57 @@ class DocumentProcessorView(LoginRequiredMixin, View):
             logger.error(f"Error extracting abstract: {str(e)}")
             return {'success': False, 'data': "Error extracting abstract."}
     
+    def _extract_authors(self, text, lines):
+        """Extract authors from the document."""
+        try:
+            logger.debug("Starting author extraction")
+            authors = []
+            # Simple pattern: look for lines with multiple names, often below the title
+            # and before the abstract.
+            for line in lines[:20]: # Check top 20 lines
+                # Avoid lines that are clearly part of the title or abstract
+                if line.lower().startswith(('abstract', 'introduction', 'keywords')) or len(line) > 150:
+                    continue
+                # A line with multiple commas or 'and' is a good candidate
+                if (line.count(',') > 1 or ' and ' in line) and len(line.split()) < 20:
+                    # Very basic cleaning
+                    found_authors = re.split(r',\s*|\s+and\s+', line)
+                    # Filter out empty strings and check if they look like names
+                    authors.extend([
+                        author.strip() for author in found_authors 
+                        if author.strip() and len(author.strip().split()) < 4
+                    ])
+                    if authors:
+                        logger.debug(f"Found potential authors: {authors}")
+                        return {'success': True, 'data': authors[:10]} # Limit to 10 authors
+            
+            if not authors:
+                logger.warning("No authors could be extracted.")
+            
+            return {'success': True, 'data': []}
+        except Exception as e:
+            logger.error(f"Error extracting authors: {str(e)}")
+            return {'success': False, 'data': []}
+
+    def _extract_publication_year(self, text):
+        """Extract publication year from the document."""
+        try:
+            logger.debug("Starting publication year extraction")
+            # Look for 4-digit numbers that look like years (e.g., 1990-2024)
+            current_year = timezone.now().year
+            matches = re.findall(r'\b(19[8-9]\d|20[0-2]\d)\b', text)
+            if matches:
+                years = sorted([int(y) for y in set(matches) if int(y) <= current_year], reverse=True)
+                if years:
+                    year = years[0]
+                    logger.debug(f"Found publication year: {year}")
+                    return {'success': True, 'data': year}
+            logger.warning("No publication year could be extracted.")
+            return {'success': True, 'data': None}
+        except Exception as e:
+            logger.error(f"Error extracting publication year: {str(e)}")
+            return {'success': False, 'data': None}
+
     def _extract_keywords(self, text, max_keywords=10):
         """Extract keywords from the document"""
         try:
@@ -513,6 +560,8 @@ class DocumentProcessorView(LoginRequiredMixin, View):
                     existing_paper.title = processed_data['title']
                     existing_paper.abstract = processed_data['abstract']
                     existing_paper.keywords = processed_data['keywords']
+                    existing_paper.authors = processed_data['authors']
+                    existing_paper.publication_year = processed_data['publication_year']
                     existing_paper.file_size = file_size
                     existing_paper.file_type = file_extension
                     existing_paper.save()
@@ -535,6 +584,8 @@ class DocumentProcessorView(LoginRequiredMixin, View):
                         title=processed_data['title'],
                         abstract=processed_data['abstract'],
                         keywords=processed_data['keywords'],
+                        authors=processed_data['authors'],
+                        publication_year=processed_data['publication_year'],
                         file_size=file_size,
                         file_type=file_extension
                     )
@@ -558,26 +609,24 @@ class DocumentProcessorView(LoginRequiredMixin, View):
     def _log_processing_success(self, user, uploaded_file, research_paper):
         """Log successful processing with detailed information"""
         try:
-            logger.info(f"User {user} - Document processing completed successfully")
-            
-            # Print detailed results to console for debugging
-            print("\n" + "="*60)
-            print(f"DOCUMENT PROCESSING SUCCESS")
-            print("="*60)
-            print(f"User: {user} (ID: {user.id})")
-            print(f"File: {uploaded_file.name}")
-            print(f"Size: {uploaded_file.size} bytes ({research_paper.get_file_size_display()})")
-            print(f"Type: {research_paper.file_type.upper()}")
-            print(f"Research Paper ID: {research_paper.id}")
-            print(f"Uploaded: {research_paper.uploaded_at}")
-            print(f"Updated: {research_paper.updated_at}")
-            print("-" * 60)
-            print(f"TITLE: {research_paper.title}")
-            print("-" * 60)
-            print(f"ABSTRACT: {research_paper.abstract[:200]}{'...' if len(research_paper.abstract) > 200 else ''}")
-            print("-" * 60)
-            print(f"KEYWORDS ({len(research_paper.keywords)}): {', '.join(research_paper.keywords)}")
-            print("="*60 + "\n")
+            log_message = (
+                f"\n{'='*60}\n"
+                f"DOCUMENT PROCESSING SUCCESS\n"
+                f"{'='*60}\n"
+                f"User: {user} (ID: {user.id})\n"
+                f"File: {uploaded_file.name}\n"
+                f"Size: {uploaded_file.size} bytes ({research_paper.get_file_size_display()})\n"
+                f"Type: {research_paper.file_type.upper()}\n"
+                f"Research Paper ID: {research_paper.id}\n"
+                f"Uploaded: {research_paper.uploaded_at}\n"
+                f"Updated: {research_paper.updated_at}\n"
+                f"{'-' * 60}\n"
+                f"TITLE: {research_paper.title}\n"
+                f"ABSTRACT: {research_paper.abstract[:200]}{'...' if len(research_paper.abstract) > 200 else ''}\n"
+                f"KEYWORDS ({len(research_paper.keywords)}): {', '.join(research_paper.keywords)}\n"
+                f"{'='*60}\n"
+            )
+            logger.info(log_message)
             
         except Exception as e:
             logger.error(f"Error in success logging: {str(e)}")
@@ -585,9 +634,7 @@ class DocumentProcessorView(LoginRequiredMixin, View):
     def _handle_error(self, request, error_message, template_name):
         """Handle errors consistently with logging and user feedback"""
         try:
-            logger.error(f"User {request.user} - Error: {error_message}")
             messages.error(request, error_message)
-            # print(f"ERROR - User {request.user}: {error_message}")
             return render(request, template_name)
             
         except Exception as e:
@@ -615,211 +662,38 @@ class DashboardView(LoginRequiredMixin, View):
             
             logger.debug(f"User {request.user.username} - Dashboard data loaded successfully")
             
-            return render(request, 'cite_guage/dashboard.html', {
+            return render(request, 'dashboard.html', {
                 'dashboard_data': dashboard_data['data']
             })
             
         except Exception as e:
             logger.exception(f"User {request.user.username} - Critical error in dashboard view")
             messages.error(request, 'Error loading dashboard.')
-            return render(request, 'cite_guage/dashboard.html', {
+            return render(request, 'dashboard.html', {
                 'dashboard_data': self._get_empty_dashboard_data()
             })
-    
+
     def _get_dashboard_statistics(self, user):
         """Get comprehensive dashboard statistics for the main dashboard."""
         try:
             logger.debug(f"Fetching dashboard statistics for user: {user.username}")
-            
+
             # Papers uploaded by the user
-            user_papers = Paper.objects.filter(user=user)
+            user_papers = ResearchPaper.objects.filter(user=user)
             total_papers = user_papers.count()
 
-            # Predictions made
-            wos_predictions_count = WOSLightGBMPrediction.objects.filter(user=user).count()
-            paper_predictions_count = user_papers.filter(predicted_citations_2y__isnull=False).count()
-            predictions_made = wos_predictions_count + paper_predictions_count
-
-            # Latest Prediction
-            latest_prediction = None
-            latest_wos_pred = WOSLightGBMPrediction.objects.filter(user=user).order_by('-predicted_at').first()
-            latest_paper_pred = user_papers.filter(predicted_at__isnull=False).order_by('-predicted_at').first()
-            
-            # Find the most recent prediction among all types
-            latest_preds = [p for p in [latest_wos_pred, latest_paper_pred] if p]
-            if latest_preds:
-                latest_preds.sort(key=lambda p: p.predicted_at, reverse=True)
-                latest = latest_preds[0]
-                if isinstance(latest, WOSLightGBMPrediction):
-                    latest_prediction = {
-                        'title': f"WOS Paper: {latest.wos_uid}",
-                        'predicted_citations': latest.light_gbm_predicted_citations,
-                        'type': 'wos'
-                    }
-                else: # Paper
-                    latest_prediction = {
-                        'title': latest.title,
-                        'predicted_citations': latest.predicted_citations_2y,
-                        'confidence_low': latest.prediction_confidence_low,
-                        'confidence_high': latest.prediction_confidence_high,
-                        'type': 'uploaded'
-                    }
-
-            # Recent papers for display
-            recent_papers = user_papers.order_by('-upload_date')[:3]
-
-            dashboard_data = {
-                'total_papers': total_papers,
-                'predictions_made': predictions_made,
-                'latest_prediction': latest_prediction,
-                'recent_papers': recent_papers,
-                'active_papers': user_papers.filter(status='active').count(), # Assuming 'active' status exists
-                'h_index': user.researcher_profile.h_index if hasattr(user, 'researcher_profile') else 0
-            }
-            
-            return {'success': True, 'data': dashboard_data}
-            
-        except Exception as e:
-            logger.error(f"Error fetching dashboard statistics: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def _get_empty_dashboard_data(self):
-        """Return empty dashboard data structure"""
-        return {
-            'total_papers': 0,
-            'active_papers': 0,
-            'h_index': 0,
-            'predictions_made': 0,
-            'latest_prediction': None,
-            'recent_papers': []
-        }
-
-
-class PaperDetailView(LoginRequiredMixin, DetailView):
-    model = Paper
-    template_name='cite_guage/research_paper_detail.html'
-    context_object_name = 'paper'
-    login_url = '/user/login/'
-
-    def get_queryset(self):
-        # Ensure users can only see their own papers
-        return Paper.objects.filter(user=self.request.user)
-
-    def post(self, request, *args, **kwargs):
-        """
-        Handle prediction request for the research paper.
-        """
-        self.object = self.get_object()
-        paper = self.object
-        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
-
-        context = self.get_context_data(object=paper)
-
-        try:
-            # The model has a property to get keywords as a string
-            keywords_str = paper.keywords
-
-            # Call the prediction function from ml_utils
-            prediction_result = predict_from_text(
-                title=paper.title,
-                abstract=paper.abstract,
-                keywords=keywords_str
-            )
-
-            if prediction_result:
-                paper.predicted_citations_2y = prediction_result.get('predicted')
-                paper.prediction_confidence_low = prediction_result.get('ci_low')
-                paper.prediction_confidence_high = prediction_result.get('ci_high')
-                paper.predicted_at = timezone.now()
-                paper.save()
-                messages.success(request, "Citation prediction generated successfully.")
-            else:
-                messages.warning(request, "Prediction model did not return a result.")
-
-            context['prediction'] = prediction_result
-
-        except (ValueError, MLModelError) as e:
-            error_message = f"Could not generate prediction: {e}"
-            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
-            messages.error(request, error_message)
-
-        except Exception as e:
-            error_message = "An unexpected error occurred during prediction. Please check the logs."
-            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
-            messages.error(request, error_message)
-
-        return self.render_to_response(context)
-
-
-class ResearchPaperDetail(LoginRequiredMixin, DetailView):
-    model = ResearchPaper
-    template_name='cite_guage/research_paper_detail.html'
-    context_object_name = 'paper'
-    login_url = '/user/login/'
-
-    def get_queryset(self):
-        # Ensure users can only see their own papers
-        return ResearchPaper.objects.filter(user=self.request.user)
-
-    def post(self, request, *args, **kwargs):
-        """
-        Handle prediction request for the research paper.
-        """
-        self.object = self.get_object()
-        paper = self.object
-        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
-        print(f"INFO: User {request.user.email} requested prediction for paper ID: {paper.id}")
-
-        context = self.get_context_data(object=paper)
-
-        try:
-            # The model has a property to get keywords as a string
-            keywords_str = paper.keywords_as_string
-
-            # Call the prediction function from ml_utils
-            prediction_result = predict_from_text(
-                title=paper.title,
-                abstract=paper.abstract,
-                keywords=keywords_str
-            )
-
-            logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
-            print(f"INFO: Prediction successful for paper ID {paper.id}: {prediction_result}")
-            messages.success(request, "Citation prediction generated successfully.")
-            context['prediction'] = prediction_result
-
-        except (ValueError, MLModelError) as e:
-            error_message = f"Could not generate prediction: {e}"
-            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
-            print(f"ERROR: Prediction failed for paper ID {paper.id}: {error_message}")
-            messages.error(request, error_message)
-
-        except Exception as e:
-            error_message = "An unexpected error occurred during prediction. Please check the logs."
-            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
-            print(f"CRITICAL: Unexpected prediction error for paper ID {paper.id}: {e}")
-            messages.error(request, error_message)
-
-        return self.render_to_response(context)
-            
             # Basic statistics
-            total_papers = user_papers.count()
             total_size = sum(paper.file_size for paper in user_papers)
-            
+
             # File type distribution
             file_types = {}
             for paper in user_papers:
                 file_types[paper.file_type] = file_types.get(paper.file_type, 0) + 1
-            
+
             # Recent papers (last 5)
             recent_papers = user_papers.order_by('-updated_at')[:5]
-            
+
             # Monthly upload trends (last 6 months)
-            from django.db.models import Count
-            from django.db.models.functions import TruncMonth
-            from django.utils import timezone
-            from datetime import datetime, timedelta
-            
             six_months_ago = timezone.now() - timedelta(days=180)
             monthly_uploads = user_papers.filter(
                 uploaded_at__gte=six_months_ago
@@ -828,16 +702,16 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
             ).values('month').annotate(
                 count=Count('id')
             ).order_by('month')
-            
+
             # Top keywords
             all_keywords = []
             for paper in user_papers:
                 if paper.keywords:
                     all_keywords.extend(paper.keywords)
-            
+
             keyword_counter = Counter(all_keywords)
             top_keywords = keyword_counter.most_common(10)
-            
+
             dashboard_data = {
                 'total_papers': total_papers,
                 'total_size': total_size,
@@ -848,14 +722,14 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
                 'top_keywords': top_keywords,
                 'average_keywords_per_paper': len(all_keywords) / total_papers if total_papers > 0 else 0
             }
-            
+
             logger.debug(f"Dashboard statistics compiled: {total_papers} papers, {len(file_types)} file types")
             return {'success': True, 'data': dashboard_data}
-            
+
         except Exception as e:
             logger.error(f"Error fetching dashboard statistics: {str(e)}")
             return {'success': False, 'error': str(e)}
-    
+
     def _get_empty_dashboard_data(self):
         """Return empty dashboard data structure"""
         return {
@@ -868,7 +742,7 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
             'top_keywords': [],
             'average_keywords_per_paper': 0
         }
-    
+
     def _format_file_size(self, size_bytes):
         """Format file size in human readable format"""
         try:
@@ -898,7 +772,6 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
         self.object = self.get_object()
         paper = self.object
         logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
-        print(f"INFO: User {request.user.email} requested prediction for paper ID: {paper.id}")
 
         context = self.get_context_data(object=paper)
 
@@ -913,21 +786,29 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
                 keywords=keywords_str
             )
 
+            # Save prediction to the model instance
+            paper.predicted_citations = prediction_result.get('predicted')
+            paper.prediction_confidence_low = prediction_result.get('ci_low')
+            paper.prediction_confidence_high = prediction_result.get('ci_high')
+            paper.predicted_at = timezone.now()
+            paper.save(update_fields=[
+                'predicted_citations', 
+                'prediction_confidence_low', 
+                'prediction_confidence_high', 
+                'predicted_at'
+            ])
             logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
-            print(f"INFO: Prediction successful for paper ID {paper.id}: {prediction_result}")
             messages.success(request, "Citation prediction generated successfully.")
             context['prediction'] = prediction_result
 
         except (ValueError, MLModelError) as e:
             error_message = f"Could not generate prediction: {e}"
             logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
-            print(f"ERROR: Prediction failed for paper ID {paper.id}: {error_message}")
             messages.error(request, error_message)
 
         except Exception as e:
             error_message = "An unexpected error occurred during prediction. Please check the logs."
             logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
-            print(f"CRITICAL: Unexpected prediction error for paper ID {paper.id}: {e}")
             messages.error(request, error_message)
 
         return self.render_to_response(context)

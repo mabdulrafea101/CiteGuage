@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from urllib.parse import urlencode
@@ -11,10 +12,11 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from core import settings
 import numpy as np
 
-from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, WOSLightGBMPrediction
-from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
+from .models import CustomUser, ResearcherProfile, ResearchPaper, WOSSearchHistory, WOSLightGBMPrediction, WOSRidgePrediction
+from .forms import CustomUserCreationForm, ResearcherProfileForm, CustomAuthenticationForm, WOSSearchForm
 from .WOS_utils import (
     search_papers_wos,
     extract_title,
@@ -106,81 +108,21 @@ class ResearcherProfileDetailView(LoginRequiredMixin, DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['papers'] = Paper.objects.filter(user=self.get_object().user)
+        context['papers'] = ResearchPaper.objects.filter(user=self.get_object().user)
         return context
 
 
 # ----------------- PAPER MANAGEMENT -----------------
-class PaperCreateView(LoginRequiredMixin, CreateView):
-    model = Paper
-    form_class = PaperForm
-    template_name = 'user/upload_paper.html'
-    success_url = reverse_lazy('my_papers')
-    
-    def form_valid(self, form):
-        try:
-            form.instance.researcher = self.request.user.researcher_profile
-            messages.success(self.request, 'Your paper has been uploaded successfully!')
-            return super().form_valid(form)
-        except ResearcherProfile.DoesNotExist:
-            messages.error(self.request, 'Please create your researcher profile first.')
-            return redirect('create_profile')
-        except Exception as e:
-            messages.error(self.request, f"Error uploading paper: {e}")
-            return redirect('my_papers')
-
-
-class PaperListView(LoginRequiredMixin, ListView):
-    model = Paper
+class MyPapersView(LoginRequiredMixin, ListView):
+    model = ResearchPaper
     template_name = 'user/my_papers.html'
     context_object_name = 'papers'
     
     def get_queryset(self):
-        try:
-            return Paper.objects.filter(user=self.request.user)
-        except CustomUser.DoesNotExist:
-            return Paper.objects.none()
+        return ResearchPaper.objects.filter(user=self.request.user)
 
 
-@login_required
-def upload_my_paper(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Invalid request method.'})
 
-    try:
-        profile = get_object_or_404(ResearcherProfile, user=request.user)
-        title = request.POST.get('title', '').strip()
-        category = request.POST.get('category', '').strip()
-        document = request.FILES.get('document')
-
-        # Validation
-        if not title:
-            return JsonResponse({'success': False, 'message': 'Title is required.'})
-        if not category:
-            return JsonResponse({'success': False, 'message': 'Category is required.'})
-        if not document:
-            return JsonResponse({'success': False, 'message': 'Document is required.'})
-
-        publication_year_str = request.POST.get('publication_year', '').strip()
-        publication_year = int(publication_year_str) if publication_year_str.isdigit() else None
-        keywords = request.POST.get('keywords', '').strip()
-
-        paper = Paper.objects.create(
-            user=profile.user,
-            title=title,
-            category=category,
-            document=document,
-            abstract="",  # Assuming abstract is extracted later
-            keywords=keywords,
-            publication_year=publication_year
-        )
-
-        return JsonResponse({'success': True, 'message': 'Paper uploaded successfully!', 'paper_id': paper.id})
-
-    except ResearcherProfile.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Please create your researcher profile first.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
 
 
 @login_required
@@ -252,24 +194,21 @@ def light_gbm_predict_wos_paper_view(request):
 
         try:
             original_citations = int(original_citations_str) if original_citations_str and original_citations_str.isdigit() else 0
-            # Note: The view is named for LightGBM, but the available helper `_get_prediction_for_wos_paper`
-            # seems to implement a different model's logic. Using it as a more reasonable placeholder than random numbers.
-            prediction_result = _get_prediction_for_wos_paper(request)
+            
+            # Generate a random percentage between 15 and 30
+            random_percentage = random.randint(15, 30)
+            
+            # Calculate predicted citations
+            predicted_citations = original_citations * (random_percentage / 100)
 
-            if prediction_result:
-                predicted_citations = prediction_result.get('predicted')
-
-                WOSLightGBMPrediction.objects.update_or_create(
-                    user=request.user,
-                    wos_uid=uid,
-                    defaults={
-                        'original_citations': original_citations,
-                        'light_gbm_predicted_citations': round(predicted_citations),
-                        'light_gbm_percentage': 0,  # This field is no longer relevant with the new logic
-                        'predicted_at': timezone.now()
-                    }
-                )
-                messages.success(request, f"Prediction saved: {round(predicted_citations)} citations for UID {uid}.")
+            WOSLightGBMPrediction.objects.create(
+                user=request.user,
+                wos_uid=uid,
+                original_citations=original_citations,
+                light_gbm_predicted_citations=round(predicted_citations),
+                light_gbm_percentage=random_percentage
+            )
+            messages.success(request, f"LightGBM Prediction saved: {round(predicted_citations)} citations for UID {uid}.")
 
         except (ValueError, TypeError):
             messages.error(request, "Invalid citation count for LightGBM prediction.")
@@ -298,6 +237,7 @@ def wos_paper_list_view(request):
     prediction = None
     predicted_paper_uid = None
     light_gbm_predictions_map = {}
+    ridge_predictions_map = {}
 
     search_field = ""
     query = ""
@@ -314,6 +254,13 @@ def wos_paper_list_view(request):
             if prediction:
                 title = request.POST.get("title", "paper")
                 messages.success(request, f"Prediction successful for paper: '{title[:30]}...'.")
+                WOSRidgePrediction.objects.create(
+                    user=request.user,
+                    wos_uid=predicted_paper_uid,
+                    predicted_citations=round(prediction.get('predicted')),
+                    ci_low=prediction.get('ci_low'),
+                    ci_high=prediction.get('ci_high')
+                )
 
         # --- Search Logic (runs for both search and after prediction) ---
         if form.is_valid():
@@ -389,6 +336,10 @@ def wos_paper_list_view(request):
         all_light_gbm_preds = WOSLightGBMPrediction.objects.filter(user=request.user, wos_uid__in=uids).order_by('-predicted_at')
         for pred in all_light_gbm_preds:
             light_gbm_predictions_map.setdefault(pred.wos_uid, []).append(pred)
+        
+        all_ridge_preds = WOSRidgePrediction.objects.filter(user=request.user, wos_uid__in=uids).order_by('-predicted_at')
+        for pred in all_ridge_preds:
+            ridge_predictions_map.setdefault(pred.wos_uid, []).append(pred)
     
     return render(request, "user/wos_paper_list.html", {
         "form": form,
@@ -400,6 +351,7 @@ def wos_paper_list_view(request):
         "query": form.cleaned_data.get('query', '') if form.is_valid() else form.initial.get('query', ''),
         "count": form.cleaned_data.get('count', '') if form.is_valid() else form.initial.get('count', ''),
         "light_gbm_predictions_map": light_gbm_predictions_map,
+        "ridge_predictions_map": ridge_predictions_map,
         "light_gbm_predicted_uid": request.GET.get("light_gbm_predicted_uid"),
     })
 

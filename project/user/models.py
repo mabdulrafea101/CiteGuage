@@ -122,37 +122,6 @@ class ResearcherProfile(models.Model):
         return self.user.papers.count()
 
 
-# ---------------------------
-# Paper & Predictions
-# ---------------------------
-class Paper(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='papers')
-    title = models.CharField(max_length=500)
-    abstract = models.TextField(blank=True, null=True)
-    keywords = models.TextField(blank=True, null=True)
-    publication_year = models.IntegerField(blank=True, null=True)
-
-    category = models.CharField(max_length=100, blank=True, null=True)
-    document = models.FileField(upload_to='papers/', blank=True, null=True)
-    authors = models.CharField(max_length=500, blank=True, null=True)
-    status = models.CharField(max_length=50, default='draft')
-
-    predicted_citations_2y = models.IntegerField(blank=True, null=True)
-    prediction_confidence_low = models.IntegerField(blank=True, null=True)
-    prediction_confidence_high = models.IntegerField(blank=True, null=True)
-    predicted_at = models.DateTimeField(blank=True, null=True)
-
-    upload_date = models.DateTimeField(auto_now_add=True)
-
-
-    def __str__(self):
-        return self.title
-
-    @property
-    def has_prediction(self):
-        return self.predicted_citations_2y is not None
-
-
 
 
 class WOSSearchHistory(models.Model):
@@ -173,7 +142,7 @@ class WOSLightGBMPrediction(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wos_light_gbm_predictions')
     wos_uid = models.CharField(max_length=255, help_text="Web of Science UID of the paper")
     original_citations = models.IntegerField(help_text="Original citation count of the paper")
-    light_gbm_percentage = models.IntegerField(default=random.randint(15, 30), help_text="Random percentage used for the prediction")
+    light_gbm_percentage = models.IntegerField(help_text="Random percentage used for the prediction")
     light_gbm_predicted_citations = models.IntegerField(help_text="Citations predicted based on the LightGBM percentage")
     predicted_at = models.DateTimeField(default=timezone.now)
 
@@ -185,6 +154,22 @@ class WOSLightGBMPrediction(models.Model):
     def __str__(self):
         return f"UID: {self.wos_uid} | LightGBM Predicted: {self.light_gbm_predicted_citations} | User: {self.user.email}"
 
+
+class WOSRidgePrediction(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wos_ridge_predictions')
+    wos_uid = models.CharField(max_length=255, help_text="Web of Science UID of the paper")
+    predicted_citations = models.IntegerField(help_text="Citations predicted by the Ridge model")
+    ci_low = models.FloatField(null=True, blank=True, help_text="Lower bound of the 95% confidence interval")
+    ci_high = models.FloatField(null=True, blank=True, help_text="Upper bound of the 95% confidence interval")
+    predicted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "WOS Ridge Prediction"
+        verbose_name_plural = "WOS Ridge Predictions"
+        ordering = ['-predicted_at']
+
+    def __str__(self):
+        return f"UID: {self.wos_uid} | Ridge Predicted: {self.predicted_citations} | User: {self.user.email}"
 
 
 
@@ -227,10 +212,18 @@ class ResearchPaper(models.Model):
         null=True,
         help_text="Extracted abstract or summary from the document"
     )
+    authors = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of extracted authors from the document."
+    )
     keywords = models.JSONField(
         default=list,
         help_text="List of extracted keywords from the document"
     )
+    publication_year = models.IntegerField(blank=True, null=True, help_text="Extracted publication year.")
+    category = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=50, default='draft', blank=True)
     file_size = models.PositiveIntegerField(
         help_text="Size of the original file in bytes"
     )
@@ -238,6 +231,16 @@ class ResearchPaper(models.Model):
         max_length=10,
         help_text="File extension (pdf, docx, txt)"
     )
+
+    # Prediction fields
+    predicted_citations = models.IntegerField(
+        blank=True, null=True,
+        help_text="Predicted citation count for the next 2 years."
+    )
+    prediction_confidence_low = models.IntegerField(blank=True, null=True)
+    prediction_confidence_high = models.IntegerField(blank=True, null=True)
+    predicted_at = models.DateTimeField(blank=True, null=True)
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -260,6 +263,8 @@ class ResearchPaper(models.Model):
     def get_file_size_display(self):
         """Return human-readable file size"""
         size = self.file_size
+        if size is None:
+            return "0 B"
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024.0:
                 return f"{size:.1f} {unit}"

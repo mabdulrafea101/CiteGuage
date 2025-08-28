@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, ResearchPaper
+from .models import CustomUser, ResearcherProfile, WOSSearchHistory, ResearchPaper, WOSLightGBMPrediction, WOSRidgePrediction
 
 # Inline for ResearcherProfile on the CustomUser admin page
 class ResearcherProfileInline(admin.StackedInline):
@@ -34,16 +34,6 @@ class CustomUserAdmin(BaseUserAdmin):
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
 
-@admin.register(Paper)
-class PaperAdmin(admin.ModelAdmin):
-    list_display = ('title', 'get_user_email', 'publication_year', 'upload_date')
-    search_fields = ('title', 'keywords')
-    list_filter = ('publication_year',)
-
-    def get_user_email(self, obj):
-        return obj.user.email
-    get_user_email.short_description = 'Submitted By'
-
 # Register ResearcherProfile directly (for completeness, even though it's inline)
 @admin.register(ResearcherProfile)
 class ResearcherProfileAdmin(admin.ModelAdmin):
@@ -57,12 +47,25 @@ class WOSSearchHistoryAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'query', 'search_field')
     list_filter = ('search_field', 'searched_at')
 
+@admin.register(WOSLightGBMPrediction)
+class WOSLightGBMPredictionAdmin(admin.ModelAdmin):
+    list_display = ('wos_uid', 'user', 'original_citations', 'light_gbm_predicted_citations', 'predicted_at')
+    search_fields = ('wos_uid', 'user__email')
+    list_filter = ('predicted_at',)
+
+
+@admin.register(WOSRidgePrediction)
+class WOSRidgePredictionAdmin(admin.ModelAdmin):
+    list_display = ('wos_uid', 'user', 'predicted_citations', 'ci_low', 'ci_high', 'predicted_at')
+    search_fields = ('wos_uid', 'user__email')
+    list_filter = ('predicted_at',)
+
 
 @admin.register(ResearchPaper)
 class ResearchPaperAdmin(admin.ModelAdmin):
-    list_display = ['filename', 'user', 'title', 'file_type', 'file_size', 'uploaded_at', 'updated_at']
-    list_filter = ['file_type', 'uploaded_at', 'updated_at']
-    search_fields = ['filename', 'title', 'user__username', 'user__email']
+    list_display = ['filename', 'user', 'title', 'file_type', 'publication_year', 'status', 'uploaded_at']
+    list_filter = ['file_type', 'publication_year', 'status', 'uploaded_at', 'updated_at']
+    search_fields = ['filename', 'title', 'user__username', 'user__email', 'keywords', 'authors']
     readonly_fields = ['uploaded_at', 'updated_at']
     ordering = ['-updated_at']
     
@@ -70,8 +73,11 @@ class ResearchPaperAdmin(admin.ModelAdmin):
         ('File Information', {
             'fields': ('user', 'filename', 'file_type', 'file_size')
         }),
-        ('Content', {
-            'fields': ('title', 'abstract', 'keywords')
+        ('Extracted Content', {
+            'fields': ('title', 'abstract', 'authors', 'keywords', 'publication_year')
+        }),
+        ('Status & Prediction', {
+            'fields': ('status', 'predicted_citations', 'prediction_confidence_low', 'prediction_confidence_high', 'predicted_at')
         }),
         ('Timestamps', {
             'fields': ('uploaded_at', 'updated_at'),
