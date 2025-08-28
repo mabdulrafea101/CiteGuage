@@ -16,7 +16,12 @@ import numpy as np
 
 from .models import CustomUser, ResearcherProfile, Paper, WOSSearchHistory, WOSLightGBMPrediction
 from .forms import CustomUserCreationForm, ResearcherProfileForm, PaperForm, CustomAuthenticationForm, WOSSearchForm
-from .WOS_utils import search_papers_wos
+from .WOS_utils import (
+    search_papers_wos,
+    extract_title,
+    extract_publication_year,
+    extract_pubtype,
+)
 from .ml_utils import predict_from_text, MLModelError
 
 
@@ -524,12 +529,28 @@ def json_file_table_detail_view(request):
         return redirect("json_file_list")
 
     # Extract tabular data
-    papers_data = [{
-        'uid': rec.get('uid', 'N/A'),
-        'title': rec.get('title', 'N/A'),
-        'pubyear': rec.get('publication_year', 'N/A'),
-        'pubtype': rec.get('pubtype', 'N/A')
-    } for rec in records if isinstance(rec, dict)]
+    papers_data = []
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+
+        # Check if it's raw format (from WOS API) or parsed format
+        if 'static_data' in rec:
+            # Raw format from WOS API
+            papers_data.append({
+                'uid': rec.get('UID', 'N/A'),
+                'title': extract_title(rec),
+                'pubyear': extract_publication_year(rec),
+                'pubtype': extract_pubtype(rec)
+            })
+        else:
+            # Parsed format
+            papers_data.append({
+                'uid': rec.get('uid', 'N/A'),
+                'title': rec.get('title', 'N/A'),
+                'pubyear': rec.get('publication_year', 'N/A'),
+                'pubtype': rec.get('pubtype', 'N/A')
+            })
 
     context = {
         "file_name": os.path.basename(file_path),

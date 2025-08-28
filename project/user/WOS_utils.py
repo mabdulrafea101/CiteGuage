@@ -234,7 +234,8 @@ def search_papers_wos(query, count, field):
     records = normalize_records(raw_data)
     logging.info(f"Extracted {len(records)} records from API.")
 
-    save_records(records)
+    # This is redundant as wos_paper_list_view saves the parsed data.
+    # save_records(records)
 
     papers = parse_papers(records)
     logging.info(f"Parsed {len(papers)} papers.")

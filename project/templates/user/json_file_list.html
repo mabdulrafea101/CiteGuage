@@ -2,6 +2,99 @@
 {% load static %}
 {% load humanize %}
 
+{% block custom_css %}
+<style>
+  /* Custom styles for DataTables transparency and glassmorphic look */
+  .dataTables_wrapper .dataTables_filter input,
+  .dataTables_wrapper .dataTables_length select {
+    background-color: rgba(255, 255, 255, 0.1); /* Light transparent background for inputs */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
+    color: white; /* White text */
+    backdrop-filter: blur(5px); /* Glassmorphic blur */
+    -webkit-backdrop-filter: blur(5px);
+  }
+
+  .dataTables_wrapper .dataTables_filter input::placeholder,
+  .dataTables_wrapper .dataTables_length select {
+    color: rgba(255, 255, 255, 0.7); /* Lighter placeholder text */
+  }
+
+  .dataTables_wrapper .dataTables_filter label,
+  .dataTables_wrapper .dataTables_length label,
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: rgba(255, 255, 255, 0.8) !important; /* Light text for labels and pagination */
+  }
+
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+    background-color: rgba(45, 255, 135, 0.4) !important; /* Accent color for current page */
+    border-color: rgba(45, 255, 135, 0.6) !important;
+    color: white !important;
+  }
+
+  .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important; /* Subtle hover for pagination buttons */
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  /* Table specific styles */
+  #jsonFilesTable {
+    background-color: rgba(255, 255, 255, 0.05); /* Transparent background for the table */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border for the table */
+    color: white; /* Default text color for table content */
+    backdrop-filter: blur(5px); /* Apply blur to the table itself */
+    -webkit-backdrop-filter: blur(5px);
+    border-radius: var(--jp-border-radius); /* Match card border-radius */
+  }
+
+  #jsonFilesTable thead th {
+    background-color: rgba(255, 255, 255, 0.15); /* Slightly more opaque for header */
+    color: white; /* White text for headers */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Stronger border for header bottom */
+  }
+
+  #jsonFilesTable tbody tr {
+    background-color: transparent; /* Ensure rows are transparent by default */
+    color: rgba(255, 255, 255, 0.9); /* Slightly transparent white for row text */
+  }
+
+  #jsonFilesTable tbody tr.odd {
+    background-color: rgba(255, 255, 255, 0.03); /* Subtle stripe for odd rows */
+  }
+
+  #jsonFilesTable tbody tr:hover {
+    background-color: rgba(45, 255, 135, 0.2); /* Accent color for hover */
+    color: white; /* Ensure text remains white on hover */
+  }
+
+  /* Adjust borders for cells to match the transparent theme */
+  #jsonFilesTable th, #jsonFilesTable td {
+    border-color: rgba(255, 255, 255, 0.1) !important; /* Light transparent borders for cells */
+  }
+
+  /* Specific adjustments for the "Actions" column */
+  #jsonFilesTable .btn-group .btn {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+  }
+
+  #jsonFilesTable .btn-group .btn:hover {
+    background-color: rgba(45, 255, 135, 0.3) !important;
+    border-color: rgba(45, 255, 135, 0.5) !important;
+  }
+
+  /* Ensure the glass-card background is not duplicated */
+  .glass-card .card-body #jsonFilesTable {
+    background-color: transparent; /* Let the parent glass-card handle the main background */
+    backdrop-filter: none; /* Remove redundant blur if table is inside glass-card */
+    -webkit-backdrop-filter: none;
+    border: none; /* Remove redundant border if table is inside glass-card */
+  }
+</style>
+{% endblock custom_css %}
+
 {% block main_content %}
 <div class="container my-5">
   <div class="row">
@@ -52,13 +145,10 @@
                       <td>
                         <div class="btn-group">
                           <a href="{% url 'json_file_detail' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-info" title="View Data">
-                            <i class="fas fa-eye"></i>
+                            <i class="text-success fas fa-eye"></i>
                           </a>
                           <a href="{% url 'json_file_table_detail' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-primary" title="View as Table">
-                            <i class="fas fa-table"></i>
-                          </a>
-                          <a href="{% url 'import_papers_from_json' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-success" title="Import Data">
-                            <i class="fas fa-file-import"></i>
+                            <i class="text-info fas fa-table"></i>
                           </a>
                         </div>
                       </td>
