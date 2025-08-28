@@ -65,8 +65,8 @@
                 <tbody>
                   {% for paper in papers %}
                     <tr>
-                      <td><a href="{% url 'Research_paper_detail' paper.id %}">{{ paper.title }}</a></td>
-                      <td><span class="badge badge-glass text-secondary">{{ paper.category|default:'N/A' }}</span></td>
+                      <td class="text-white"><a href="{% url 'Research_paper_detail' paper.id %}">{{ paper.title }}</a></td>
+                      <td><span class="badge badge-glass">{{ paper.category|default:'N/A' }}</span></td>
                       <td>
                         {% if paper.status == 'draft' %}
                           <span class="badge bg-warning text-dark">{{ paper.status|title }}</span>
@@ -86,7 +86,7 @@
                           -
                         {% endif %}
                       </td>
-                      <td class="text-secondary">{{ paper.uploaded_at|date:"M d, Y" }}</td>
+                      <td class="text-glass-muted">{{ paper.uploaded_at|date:"M d, Y" }}</td>
                       <td>
                         <div class="btn-group">
                           <a href="{% url 'Research_paper_detail' paper.id %}" class="btn btn-sm" title="View Details">

@@ -40,6 +40,13 @@
   backdrop-filter: blur(5px); /* Apply blur to the table itself */
   -webkit-backdrop-filter: blur(5px);
   border-radius: var(--jp-border-radius); /* Match card border-radius */
+  /* Override Bootstrap 5 variables for DataTables integration */
+  --bs-table-bg: transparent !important;
+  --bs-table-color: white !important;
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.05) !important;
+  --bs-table-striped-color: white !important;
+  --bs-table-hover-bg: rgba(45, 255, 135, 0.2) !important;
+  --bs-table-hover-color: white !important;
 }
 
 .table-glass thead th {
@@ -53,13 +60,14 @@
   color: rgba(255, 255, 255, 0.9); /* Slightly transparent white for row text */
 }
 
-.table-glass.table-striped tbody tr.odd {
-  background-color: rgba(255, 255, 255, 0.03); /* Subtle stripe for odd rows */
+.table-glass a {
+  color: white;
+  text-decoration: none;
 }
 
-.table-glass.table-hover tbody tr:hover {
-  background-color: rgba(45, 255, 135, 0.2); /* Accent color for hover */
-  color: white; /* Ensure text remains white on hover */
+.table-glass a:hover {
+  color: #2dff87; /* accent green */
+  text-decoration: underline;
 }
 
 /* Adjust borders for cells to match the transparent theme */

@@ -61,14 +61,14 @@
                 <tbody>
                   {% for file in files %}
                     <tr>
-                      <td>
-                        <i class="fas fa-file-alt text-secondary me-2"></i>
+                      <td class="text-white">
+                        <i class="fas fa-file-alt text-glass-muted me-2"></i>
                         {{ file.name }}
                         <br>
                         <small class="text-glass-muted">{{ file.path }}</small>
                       </td>
-                      <td>{{ file.size|filesizeformat }}</td>
-                      <td>{{ file.modified_time|naturaltime }}</td>
+                      <td class="text-glass-muted">{{ file.size|filesizeformat }}</td>
+                      <td class="text-glass-muted">{{ file.modified_time|naturaltime }}</td>
                       <td>
                         <div class="btn-group">
                           <a href="{% url 'json_file_detail' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-info" title="View Data">
