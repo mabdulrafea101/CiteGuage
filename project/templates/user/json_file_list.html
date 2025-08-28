@@ -29,7 +29,7 @@
         <div class="card-body">
           {% if files %}
             <div class="table-responsive">
-              <table class="table table-hover">
+              <table id="jsonFilesTable" class="table table-hover table-striped" style="width:100%">
                 <thead>
                   <tr>
                     <th>File Name</th>
@@ -51,7 +51,13 @@
                       <td>{{ file.modified_time|naturaltime }}</td>
                       <td>
                         <div class="btn-group">
-                          <a href="{% url 'import_papers_from_json' %}?file={{ file.full_path }}" class="btn btn-sm btn-outline-success" title="Import Data">
+                          <a href="{% url 'json_file_detail' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-info" title="View Data">
+                            <i class="fas fa-eye"></i>
+                          </a>
+                          <a href="{% url 'json_file_table_detail' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-primary" title="View as Table">
+                            <i class="fas fa-table"></i>
+                          </a>
+                          <a href="{% url 'import_papers_from_json' %}?file={{ file.full_path|urlencode }}" class="btn btn-sm btn-outline-success" title="Import Data">
                             <i class="fas fa-file-import"></i>
                           </a>
                         </div>
@@ -74,3 +80,19 @@
   </div>
 </div>
 {% endblock main_content %}
+
+{% block custom_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('#jsonFilesTable').DataTable({
+        "pageLength": 10,
+        "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+        "order": [[ 2, "desc" ]], // Sort by 'Last Modified' column descending by default
+        "columnDefs": [
+            { "orderable": false, "targets": 3 } // Disable sorting on 'Actions' column
+        ]
+    });
+});
+</script>
+{% endblock custom_js %}

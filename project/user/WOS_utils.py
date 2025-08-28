@@ -124,6 +124,14 @@ def extract_publication_year(rec):
     except Exception:
         return None
 
+def extract_pubtype(rec):
+    """Safely extract the publication type."""
+    try:
+        # The 'pubtype' attribute is nested under 'pub_info'
+        return rec.get("static_data", {}).get("summary", {}).get("pub_info", {}).get("pubtype")
+    except Exception:
+        return None
+
 
 def extract_doi(rec):
     """Safely extract the DOI."""
@@ -203,6 +211,7 @@ def parse_papers(records):
             "keywords": keywords_list,
             # New fields for feature engineering
             "publication_year": extract_publication_year(rec),
+            "pubtype": extract_pubtype(rec),
             "doi": extract_doi(rec),
             "url": extract_url(rec),
             "num_references": count_references(rec),

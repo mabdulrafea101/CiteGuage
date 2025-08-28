@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block main_content %}
+<div class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0 text-white">
+      <i class="fas fa-file-alt me-2 text-primary"></i>
+      {{ file_name }}
+    </h2>
+    <a href="{% url 'json_file_list' %}" class="btn btn-secondary-glass">
+      <i class="fas fa-arrow-left me-2"></i>Back to File List
+    </a>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-body">
+      <h5 class="card-title text-white">File Content</h5>
+      {% if records %}
+        <pre class="bg-dark text-white p-3 rounded" style="max-height: 70vh; overflow: auto;"><code>{{ records_pretty }}</code></pre>
+      {% else %}
+        <p class="text-glass-muted">The file is empty or does not contain valid records.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock main_content %}

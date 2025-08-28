@@ -456,6 +456,143 @@ def list_json_files_view(request):
 
     return render(request, 'user/json_file_list.html', {'files': json_files_data})
 
+@login_required
+def json_file_detail_view(request):
+    file_path = request.GET.get("file")
+
+    if not file_path:
+        messages.error(request, "No file specified.")
+        return redirect("json_file_list")
+        
+    # Security check: ensure the file is within the json_data directory
+    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
+    abs_file_path = os.path.abspath(file_path)
+    if not abs_file_path.startswith(os.path.abspath(json_data_dir)):
+        messages.error(request, "Access to this file is not permitted.")
+        return redirect("json_file_list")
+
+    if not os.path.exists(abs_file_path):
+        messages.error(request, f"File not found: {os.path.basename(file_path)}")
+        return redirect("json_file_list")
+
+    try:
+        with open(abs_file_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    except Exception as e:
+        messages.error(request, f"Failed to load or parse JSON file: {e}")
+        return redirect("json_file_list")
+
+    # For pretty printing in the template
+    records_pretty = json.dumps(records, indent=4)
+
+    context = {
+        "file_name": os.path.basename(file_path),
+        "records": records,
+        "records_pretty": records_pretty
+    }
+    return render(request, "user/json_file_detail.html", context)
+
+@login_required
+def json_file_table_detail_view(request):
+    file_path = request.GET.get("file")
+
+    if not file_path:
+        messages.error(request, "No file specified.")
+        return redirect("json_file_list")
+        
+    # Security check: ensure the file is within the json_data directory
+    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
+    abs_file_path = os.path.abspath(file_path)
+    if not abs_file_path.startswith(os.path.abspath(json_data_dir)):
+        messages.error(request, "Access to this file is not permitted.")
+        return redirect("json_file_list")
+
+    if not os.path.exists(abs_file_path):
+        messages.error(request, f"File not found: {os.path.basename(file_path)}")
+        return redirect("json_file_list")
+
+    try:
+        with open(abs_file_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    except Exception as e:
+        messages.error(request, f"Failed to load or parse JSON file: {e}")
+        return redirect("json_file_list")
+
+    # The JSON files are already a list of parsed paper dicts
+    if not isinstance(records, list):
+        messages.error(request, "JSON file does not contain a list of records.")
+        return redirect("json_file_list")
+
+    # Extract tabular data
+    papers_data = [{
+        'uid': rec.get('uid', 'N/A'),
+        'title': rec.get('title', 'N/A'),
+        'pubyear': rec.get('publication_year', 'N/A'),
+        'pubtype': rec.get('pubtype', 'N/A')
+    } for rec in records if isinstance(rec, dict)]
+
+    context = {
+        "file_name": os.path.basename(file_path),
+        "papers": papers_data,
+    }
+    return render(request, "user/json_file_table_detail.html", context)
+
+def _perform_paper_import(request, file_path):
+    """Helper to import papers from a given JSON file path."""
+    if not file_path or not os.path.exists(file_path):
+        messages.error(request, "Invalid or non-existent file selected for import.")
+        return 0
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    except Exception as e:
+        messages.error(request, f"Failed to load or parse JSON file: {e}")
+        return 0
+
+    if isinstance(records, dict):
+        for key in ["records", "REC", "data"]:
+            if key in records and isinstance(records[key], list):
+                records = records[key]
+                break
+    
+    if not isinstance(records, list):
+        messages.error(request, "JSON file does not contain a list of records.")
+        return 0
+
+    imported_count = 0
+    skipped_count = 0
+    user = request.user if request.user.is_authenticated else CustomUser.objects.first()
+
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+            
+        title = rec.get("title") or rec.get("TI") or rec.get("Title") or ""
+        if not title:
+            continue
+
+        if Paper.objects.filter(title=title, user=user).exists():
+            skipped_count += 1
+            continue
+
+        keywords_data = rec.get("keywords") or rec.get("DE") or ""
+        keywords_str = ", ".join(keywords_data) if isinstance(keywords_data, list) else keywords_data
+
+        Paper.objects.create(
+            user=user,
+            title=title,
+            abstract=rec.get("abstract") or rec.get("AB") or "",
+            keywords=keywords_str,
+            publication_year=rec.get("publication_year") or rec.get("PY") or None,
+            category=rec.get("category") or rec.get("SO") or "",
+            authors=", ".join(rec.get("authors", [])) if isinstance(rec.get("authors"), list) else rec.get("authors", ""),
+            status="imported",
+        )
+        imported_count += 1
+    
+    return imported_count, skipped_count
+
 def import_papers_from_json(request):
     # Path to your json_data folder
     json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
@@ -466,68 +603,29 @@ def import_papers_from_json(request):
             if file.endswith(".json"):
                 json_files.append(os.path.join(root, file))
 
+    # Handle direct import from the file list page (GET request with 'file' param)
+    file_to_import = request.GET.get("file")
+    if file_to_import:
+        imported_count, skipped_count = _perform_paper_import(request, file_to_import)
+        if imported_count > 0:
+            messages.success(request, f"Successfully imported {imported_count} new papers from {os.path.basename(file_to_import)}.")
+        if skipped_count > 0:
+            messages.info(request, f"Skipped {skipped_count} papers that already exist in your collection.")
+        if imported_count == 0 and skipped_count == 0:
+            messages.warning(request, f"No new papers were imported from {os.path.basename(file_to_import)}. The file might be empty or contain only existing papers.")
+        return redirect("json_file_list")
+
+    # Handle form submission from the import page itself
     if request.method == "POST":
         selected_file = request.POST.get("json_file")
-        if not selected_file or not os.path.exists(selected_file):
-            messages.error(request, "Invalid file selected.")
-            return redirect("import_papers_from_json")
-
-        # Load JSON data
-        with open(selected_file, "r", encoding="utf-8") as f:
-            try:
-                records = json.load(f)
-            except Exception as e:
-                messages.error(request, f"Failed to load JSON: {e}")
-                return redirect("import_papers_from_json")
-
-        # If the JSON is a dict with a list inside, extract it
-        if isinstance(records, dict):
-            # Try common keys
-            for key in ["records", "REC", "data"]:
-                if key in records:
-                    records = records[key]
-                    break
-
-        if not isinstance(records, list):
-            messages.error(request, "JSON file does not contain a list of records.")
-            return redirect("import_papers_from_json")
-
-        # Import each record
-        imported = 0
-        for rec in records:
-            # Map fields from JSON to Paper model
-            title = rec.get("title") or rec.get("TI") or rec.get("Title") or ""
-            abstract = rec.get("abstract") or rec.get("AB") or ""
-            keywords = rec.get("keywords") or rec.get("DE") or ""
-            publication_year = rec.get("publication_year") or rec.get("PY") or None
-            category = rec.get("category") or rec.get("SO") or ""
-            authors = rec.get("authors") or rec.get("AU") or ""
-            status = "imported"
-
-            # If you want to assign to the current user, or a default user:
-            user = request.user if request.user.is_authenticated else CustomUser.objects.first()
-
-            # Avoid duplicates (optional): check by title and user
-            if Paper.objects.filter(title=title, user=user).exists():
-                continue
-
-            Paper.objects.create(
-                user=user,
-                title=title,
-                abstract=abstract,
-                keywords=keywords,
-                publication_year=publication_year,
-                category=category,
-                authors=", ".join(authors) if isinstance(authors, list) else authors,
-                status=status,
-            )
-            imported += 1
-
-        messages.success(request, f"Imported {imported} papers from {os.path.basename(selected_file)}.")
+        imported_count, skipped_count = _perform_paper_import(request, selected_file)
+        # Redirect to the same page to show messages
         return redirect("import_papers_from_json")
 
+    # For GET request, render the page with the dropdown
     return render(request, "user/import_papers_from_json.html", {
         "json_files": json_files,
+        "selected_file": request.GET.get("file") # Pass this for pre-selection
     })
 
 

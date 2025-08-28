@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block main_content %}
+<div class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0 text-white">
+      <i class="fas fa-table me-2 text-primary"></i>
+      {{ file_name }}
+    </h2>
+    <a href="{% url 'json_file_list' %}" class="btn btn-secondary-glass">
+      <i class="fas fa-arrow-left me-2"></i>Back to File List
+    </a>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-body">
+      <h5 class="card-title text-white">Paper Records</h5>
+      {% if papers %}
+        <div class="table-responsive">
+          <table id="papersTable" class="table table-hover table-striped" style="width:100%">
+            <thead>
+              <tr>
+                <th>UID</th>
+                <th>Title</th>
+                <th>Year</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for paper in papers %}
+                <tr>
+                  <td>{{ paper.uid }}</td>
+                  <td>{{ paper.title }}</td>
+                  <td>{{ paper.pubyear }}</td>
+                  <td>{{ paper.pubtype|default:"N/A" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-glass-muted">The file is empty or does not contain valid records.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock main_content %}
+
+{% block custom_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('#papersTable').DataTable({
+        "pageLength": 10,
+        "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+        "order": [[ 2, "desc" ]] // Sort by 'Year' column descending by default
+    });
+});
+</script>
+{% endblock custom_js %}
