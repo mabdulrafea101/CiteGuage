@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block main_content %}
+<div class="container my-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0 text-white">
+          <i class="fas fa-file-code me-2 text-primary"></i>
+          JSON Data Files
+        </h2>
+        <a href="{% url 'import_papers_from_json' %}" class="btn btn-primary-glass">
+          <i class="fas fa-file-import me-2"></i>Import Papers from JSON
+        </a>
+      </div>
+      
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      
+      <div class="glass-card">
+        <div class="card-body">
+          {% if files %}
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>File Name</th>
+                    <th>Size</th>
+                    <th>Last Modified</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for file in files %}
+                    <tr>
+                      <td>
+                        <i class="fas fa-file-alt text-secondary me-2"></i>
+                        {{ file.name }}
+                        <br>
+                        <small class="text-glass-muted">{{ file.path }}</small>
+                      </td>
+                      <td>{{ file.size|filesizeformat }}</td>
+                      <td>{{ file.modified_time|naturaltime }}</td>
+                      <td>
+                        <div class="btn-group">
+                          <a href="{% url 'import_papers_from_json' %}?file={{ file.full_path }}" class="btn btn-sm btn-outline-success" title="Import Data">
+                            <i class="fas fa-file-import"></i>
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <i class="fas fa-folder-open fa-3x text-glass-muted mb-3"></i>
+              <h4 class="text-white">No JSON files found</h4>
+              <p class="text-glass-muted">The `json_data` directory is empty or does not exist.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock main_content %}

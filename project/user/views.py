@@ -169,15 +169,19 @@ def upload_my_paper(request):
         if not document:
             return JsonResponse({'success': False, 'message': 'Document is required.'})
 
+        publication_year_str = request.POST.get('publication_year', '').strip()
+        publication_year = int(publication_year_str) if publication_year_str.isdigit() else None
+        keywords = request.POST.get('keywords', '').strip()
+
         paper = Paper.objects.create(
-    user=profile.user,
-    title=title,
-    abstract="",
-    keywords=keywords or "",
-    publication_year=publication_year
-)
-
-
+            user=profile.user,
+            title=title,
+            category=category,
+            document=document,
+            abstract="",  # Assuming abstract is extracted later
+            keywords=keywords,
+            publication_year=publication_year
+        )
 
         return JsonResponse({'success': True, 'message': 'Paper uploaded successfully!', 'paper_id': paper.id})
 
@@ -185,12 +189,6 @@ def upload_my_paper(request):
         return JsonResponse({'success': False, 'message': 'Please create your researcher profile first.'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
-
-
-
-
-
-
 
 # WOS View API end-points
 
@@ -425,10 +423,42 @@ def wos_paper_list_view(request):
         "light_gbm_predicted_uid": request.GET.get("light_gbm_predicted_uid"),
     })
 
+@login_required
+def list_json_files_view(request):
+    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
+    json_files_data = []
+    
+    if not os.path.exists(json_data_dir):
+        messages.warning(request, "The 'json_data' directory does not exist.")
+        return render(request, 'user/json_file_list.html', {'files': []})
+
+    for root, dirs, files in os.walk(json_data_dir):
+        for file in files:
+            if file.endswith(".json"):
+                file_path = os.path.join(root, file)
+                try:
+                    file_stat = os.stat(file_path)
+                    # Make path relative to BASE_DIR for display
+                    relative_path = os.path.relpath(file_path, settings.BASE_DIR)
+                    file_info = {
+                        'name': file,
+                        'path': relative_path,
+                        'full_path': file_path,
+                        'size': file_stat.st_size,
+                        'modified_time': datetime.datetime.fromtimestamp(file_stat.st_mtime)
+                    }
+                    json_files_data.append(file_info)
+                except OSError as e:
+                    messages.error(request, f"Could not access file {file_path}: {e}")
+
+    # Sort files by modification time, newest first
+    json_files_data.sort(key=lambda x: x['modified_time'], reverse=True)
+
+    return render(request, 'user/json_file_list.html', {'files': json_files_data})
 
 def import_papers_from_json(request):
     # Path to your json_data folder
-    json_data_dir = os.path.join(os.getcwd(), "json_data")
+    json_data_dir = os.path.join(settings.BASE_DIR, "json_data")
     # List all JSON files (recursively, if needed)
     json_files = []
     for root, dirs, files in os.walk(json_data_dir):
@@ -494,7 +524,7 @@ def import_papers_from_json(request):
             imported += 1
 
         messages.success(request, f"Imported {imported} papers from {os.path.basename(selected_file)}.")
-        return redirect("user/import_papers_from_json")
+        return redirect("import_papers_from_json")
 
     return render(request, "user/import_papers_from_json.html", {
         "json_files": json_files,

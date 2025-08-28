@@ -11,8 +11,8 @@
     <div class="mb-3">
       <label for="json_file" class="form-label">Select JSON file:</label>
       <select name="json_file" id="json_file" class="form-control form-control-glass">
-        {% for file in json_files %}
-          <option value="{{ file }}">{{ file|cut:request.get_host }}</option>
+        {% for file_path in json_files %}
+          <option value="{{ file_path }}" {% if file_path == selected_file %}selected{% endif %}>{{ file_path }}</option>
         {% endfor %}
       </select>
     </div>
