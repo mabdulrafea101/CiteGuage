@@ -219,52 +219,47 @@ class DocumentProcessorView(LoginRequiredMixin, View):
             logger.debug("Starting PDF text extraction")
             text = ""
             
-            # Create a temporary file to work with
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            # Use a temporary file that is deleted on close
+            with tempfile.NamedTemporaryFile(suffix='.pdf') as tmp_file:
                 for chunk in file.chunks():
                     tmp_file.write(chunk)
-                tmp_file.flush()
+                tmp_file.seek(0) # Go to the beginning of the file for reading
                 
-                logger.debug(f"Created temporary PDF file: {tmp_file.name}")
+                logger.debug(f"Processing temporary PDF file")
                 
-                # Read PDF
-                with open(tmp_file.name, 'rb') as pdf_file:
-                    pdf_reader = PyPDF2.PdfReader(pdf_file)
-                    page_count = len(pdf_reader.pages)
-                    logger.debug(f"PDF has {page_count} pages")
-                    
-                    for page_num in range(page_count):
-                        page = pdf_reader.pages[page_num]
-                        page_text = page.extract_text()
+                # Read PDF directly from the file-like object
+                pdf_reader = PyPDF2.PdfReader(tmp_file)
+                page_count = len(pdf_reader.pages)
+                logger.debug(f"PDF has {page_count} pages")
+                
+                for page_num in range(page_count):
+                    page = pdf_reader.pages[page_num]
+                    page_text = page.extract_text()
+                    if page_text:
                         text += page_text + "\n"
-                        logger.debug(f"Extracted text from page {page_num + 1}")
-                
-                # Clean up temp file
-                os.unlink(tmp_file.name)
-                logger.debug("PDF temporary file cleaned up")
+                    logger.debug(f"Extracted text from page {page_num + 1}")
             
             logger.debug(f"PDF text extraction completed, total length: {len(text)}")
             return {'success': True, 'text': text}
             
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {str(e)}")
-            return {'success': False, 'error': f'Failed to extract text from PDF: {str(e)}'}
+            return {'success': False, 'error': f'Failed to extract text from PDF: {e}'}
     
     def _extract_text_from_docx(self, file):
         """Extract text from DOCX file"""
         try:
             logger.debug("Starting DOCX text extraction")
             
-            # Create a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix='.docx') as tmp_file:
                 for chunk in file.chunks():
                     tmp_file.write(chunk)
-                tmp_file.flush()
+                tmp_file.seek(0)
                 
-                logger.debug(f"Created temporary DOCX file: {tmp_file.name}")
+                logger.debug(f"Processing temporary DOCX file")
                 
-                # Read DOCX
-                doc = docx.Document(tmp_file.name)
+                # Read DOCX from file-like object
+                doc = docx.Document(tmp_file)
                 text = ""
                 paragraph_count = 0
                 
@@ -273,17 +268,13 @@ class DocumentProcessorView(LoginRequiredMixin, View):
                     paragraph_count += 1
                 
                 logger.debug(f"Processed {paragraph_count} paragraphs from DOCX")
-                
-                # Clean up temp file
-                os.unlink(tmp_file.name)
-                logger.debug("DOCX temporary file cleaned up")
             
             logger.debug(f"DOCX text extraction completed, total length: {len(text)}")
             return {'success': True, 'text': text}
             
         except Exception as e:
             logger.error(f"Error extracting text from DOCX: {str(e)}")
-            return {'success': False, 'error': f'Failed to extract text from DOCX: {str(e)}'}
+            return {'success': False, 'error': f'Failed to extract text from DOCX: {e}'}
     
     def _extract_text_from_txt(self, file):
         """Extract text from TXT file"""
