@@ -64,13 +64,13 @@ This combination of features makes CiteGauge a powerful tool for researchers to 
 
 ## Getting Started
 
-To get a local copy up and running, follow these simple steps.
+To get a local copy up and running on Windows, follow these simple steps.
 
 ### Prerequisites
 
 You will need the following software installed on your system:
-*   Python 3.8+
-*   pip
+*   Python 3.13+
+*   [uv](https://github.com/astral-sh/uv) (an extremely fast Python package installer and resolver)
 *   Redis (for Celery task queue, as configured in `core/settings.py`)
 
 ### Installation
@@ -78,30 +78,53 @@ You will need the following software installed on your system:
 1.  **Clone the repository:**
     ```sh
     git clone https://your-repository-url/CiteGuage.git
-    cd CiteGuage/UI design/project
+    cd "CiteGuage/UI design/project"
     ```
 
-2.  **Create and activate a virtual environment:**
-    ```sh
-    python -m venv .venv
-    source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
+2.  **Create and activate a virtual environment using `uv`:**
+    ```shell
+    uv venv
+    .venv\Scripts\activate
     ```
 
-3.  **Install the dependencies:**
-    ```sh
-    pip install -r requirements.txt
+3.  **Install the dependencies using `uv`:**
+    ```shell
+    uv pip install -r requirements.txt
     ```
 
 4.  **Set up the database:**
-    ```sh
+    ```shell
     python manage.py migrate
     ```
 
-5.  **Run the development server:**
-    ```sh
-    python manage.py runserver
+5.  **Create a superuser account:**
+    This account will allow you to access the Django admin interface.
+    ```shell
+    python manage.py createsuperuser
     ```
-    The application will be available at `http://12.0.0.1:8000`.
+    You will be prompted to enter a username, email, and password. For example:
+    ```
+    Username: admin
+    Email address: admin@example.com
+    Password: ...
+    Password (again): ...
+    Superuser created successfully.
+    ```
+
+6.  **Run the application:**
+    For development, you'll need to run two separate processes in two different terminals from the project root (`CiteGuage/UI design/project`).
+
+    *   **Terminal 1: Run the JupyterLab Server**
+        The project uses JupyterLab for certain functionalities.
+        ```shell
+        jupyter lab
+        ```
+
+    *   **Terminal 2: Run the Django Development Server**
+        ```shell
+        python manage.py runserver
+        ```
+    The application will be available at `http://127.0.0.1:8000`.
 
 ---
 
