@@ -6,6 +6,7 @@ from .views import (
     ResearcherProfileUpdateView,
     ResearcherProfileDetailView,
     MyPapersView,
+    EditPaperView,
     wos_paper_list_view,
     light_gbm_predict_wos_paper_view,
     import_papers_from_json,
@@ -28,6 +29,7 @@ urlpatterns = [
 
     # Papers
     path('papers/', MyPapersView.as_view(), name='my_papers'),
+    path('papers/<int:pk>/edit/', EditPaperView.as_view(), name='edit_paper'),
 
     path("wos-papers/", wos_paper_list_view, name="wos_papers"),  # List papers from WOS
     path("papers/import-json/", import_papers_from_json, name="import_papers_from_json"),

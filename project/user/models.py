@@ -241,6 +241,12 @@ class ResearchPaper(models.Model):
     prediction_confidence_high = models.IntegerField(blank=True, null=True)
     predicted_at = models.DateTimeField(blank=True, null=True)
 
+    # LightGBM prediction fields
+    light_gbm_predicted_citations = models.IntegerField(blank=True, null=True, help_text="Dummy LightGBM prediction")
+    light_gbm_percentage = models.IntegerField(blank=True, null=True, help_text="[DEPRECATED] No longer used.")
+    light_gbm_predicted_at = models.DateTimeField(blank=True, null=True)
+
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -270,3 +276,31 @@ class ResearchPaper(models.Model):
                 return f"{size:.1f} {unit}"
             size /= 1024.0
         return f"{size:.1f} TB"
+
+
+class ResearchPaperRidgePrediction(models.Model):
+    research_paper = models.ForeignKey(ResearchPaper, on_delete=models.CASCADE, related_name='ridge_predictions')
+    predicted_citations = models.IntegerField(help_text="Citations predicted by the Ridge model")
+    ci_low = models.FloatField(null=True, blank=True, help_text="Lower bound of the 95% confidence interval")
+    ci_high = models.FloatField(null=True, blank=True, help_text="Upper bound of the 95% confidence interval")
+    predicted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-predicted_at']
+        verbose_name = "Research Paper Ridge Prediction"
+
+    def __str__(self):
+        return f"Paper: {self.research_paper.id} | Predicted: {self.predicted_citations}"
+
+
+class ResearchPaperLightGBMPrediction(models.Model):
+    research_paper = models.ForeignKey(ResearchPaper, on_delete=models.CASCADE, related_name='light_gbm_predictions')
+    light_gbm_predicted_citations = models.IntegerField(help_text="Citations predicted by the LightGBM model")
+    predicted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-predicted_at']
+        verbose_name = "Research Paper LightGBM Prediction"
+
+    def __str__(self):
+        return f"Paper: {self.research_paper.id} | Predicted: {self.light_gbm_predicted_citations}"

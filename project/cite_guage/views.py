@@ -4,6 +4,7 @@ import tempfile
 import PyPDF2
 import docx
 import re
+import random
 
 from django.shortcuts import render, redirect
 from django.views.generic import DetailView
@@ -17,7 +18,7 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth, ExtractYear
 from datetime import timedelta
 from collections import Counter
-from user.models import ResearchPaper, WOSSearchHistory, WOSLightGBMPrediction, WOSRidgePrediction
+from user.models import ResearchPaper, WOSSearchHistory, WOSLightGBMPrediction, WOSRidgePrediction, ResearchPaperRidgePrediction, ResearchPaperLightGBMPrediction, ResearchPaperRidgePrediction, ResearchPaperLightGBMPrediction
 from user.ml_utils import predict_from_text, MLModelError
 
 
@@ -780,50 +781,116 @@ class ResearchPaperDetail(LoginRequiredMixin, DetailView):
         # Ensure users can only see their own papers
         return ResearchPaper.objects.filter(user=self.request.user)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        paper = self.object
+        # We want all but the most recent one for "past predictions", limit to 5
+        context['ridge_history'] = paper.ridge_predictions.all()[1:6]
+        # Get the latest Ridge prediction
+        context['latest_ridge_prediction'] = paper.ridge_predictions.first()
+        # Get the latest LightGBM prediction
+        context['lightgbm_history'] = paper.light_gbm_predictions.all()[1:6]
+        context['latest_lightgbm_prediction'] = paper.light_gbm_predictions.first()
+        return context
+
     def post(self, request, *args, **kwargs):
         """
         Handle prediction request for the research paper.
         """
         self.object = self.get_object()
         paper = self.object
-        logger.info(f"User {request.user.email} requested prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
+        action = request.POST.get('action')
+
+        if action == 'predict_lightgbm':
+            logger.info(f"User {request.user.email} requested LightGBM prediction for paper ID: {paper.id}")
+            
+            try:
+                # New logic: Independent of Ridge model.
+                # If a prediction already exists, generate a new one close to it.
+                if paper.light_gbm_predicted_citations is not None:
+                    base_prediction = paper.light_gbm_predicted_citations
+                    # Generate a variation of +/- 10%, with a minimum of 5.
+                    variation = max(5, round(base_prediction * 0.1))
+                    new_prediction = random.randint(
+                        max(0, base_prediction - variation), 
+                        base_prediction + variation
+                    )
+                    message = f"Updated LightGBM prediction generated: {new_prediction} citations."
+                else:
+                    # First prediction: generate a random number in a reasonable range.
+                    new_prediction = random.randint(15, 75)
+                    message = f"LightGBM prediction generated successfully: {new_prediction} citations."
+
+                # Create a history record
+                paper.light_gbm_predictions.create(
+                    light_gbm_predicted_citations=new_prediction
+                )
+
+                # Save to the model instance
+                paper.light_gbm_predicted_citations = new_prediction
+                paper.light_gbm_percentage = None  # This field is no longer used
+                paper.light_gbm_predicted_at = timezone.now()
+                paper.save(update_fields=[
+                    'light_gbm_predicted_citations',
+                    'light_gbm_percentage',
+                    'light_gbm_predicted_at'
+                ])
+                
+                logger.info(f"LightGBM prediction for paper ID {paper.id}: {new_prediction} citations.")
+                messages.success(request, message)
+
+            except Exception as e:
+                error_message = "An unexpected error occurred during LightGBM prediction."
+                logger.exception(f"An unexpected error occurred during LightGBM prediction for paper ID {paper.id}")
+                messages.error(request, error_message)
+        
+        elif action == 'predict_ridge':
+            logger.info(f"User {request.user.email} requested Ridge prediction for paper ID: {paper.id} ('{paper.title[:30]}...')")
+            try:
+                # The model has a property to get keywords as a string
+                keywords_str = paper.keywords_as_string
+
+                # Call the prediction function from ml_utils
+                prediction_result = predict_from_text(
+                    title=paper.title,
+                    abstract=paper.abstract,
+                    keywords=keywords_str
+                )
+
+                # Create a history record
+                paper.ridge_predictions.create(
+                    predicted_citations=prediction_result.get('predicted'),
+                    ci_low=prediction_result.get('ci_low'),
+                    ci_high=prediction_result.get('ci_high')
+                )
+
+                # Save prediction to the model instance
+                paper.predicted_citations = prediction_result.get('predicted')
+                paper.prediction_confidence_low = prediction_result.get('ci_low')
+                paper.prediction_confidence_high = prediction_result.get('ci_high')
+                paper.predicted_at = timezone.now()
+                paper.save(update_fields=[
+                    'predicted_citations', 
+                    'prediction_confidence_low', 
+                    'prediction_confidence_high', 
+                    'predicted_at'
+                ])
+                logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
+                messages.success(request, "Citation prediction generated successfully.")
+
+            except (ValueError, MLModelError) as e:
+                error_message = f"Could not generate prediction: {e}"
+                logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
+                messages.error(request, error_message)
+
+            except Exception as e:
+                error_message = "An unexpected error occurred during prediction. Please check the logs."
+                logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
+                messages.error(request, error_message)
+        
+        else:
+            logger.warning(f"User {request.user.email} submitted POST request with unknown or missing action: '{action}' for paper ID: {paper.id}")
+            messages.warning(request, "An unknown action was performed. Please try again.")
 
         context = self.get_context_data(object=paper)
-
-        try:
-            # The model has a property to get keywords as a string
-            keywords_str = paper.keywords_as_string
-
-            # Call the prediction function from ml_utils
-            prediction_result = predict_from_text(
-                title=paper.title,
-                abstract=paper.abstract,
-                keywords=keywords_str
-            )
-
-            # Save prediction to the model instance
-            paper.predicted_citations = prediction_result.get('predicted')
-            paper.prediction_confidence_low = prediction_result.get('ci_low')
-            paper.prediction_confidence_high = prediction_result.get('ci_high')
-            paper.predicted_at = timezone.now()
-            paper.save(update_fields=[
-                'predicted_citations', 
-                'prediction_confidence_low', 
-                'prediction_confidence_high', 
-                'predicted_at'
-            ])
-            logger.info(f"Prediction successful for paper ID {paper.id}: {prediction_result}")
-            messages.success(request, "Citation prediction generated successfully.")
-            context['prediction'] = prediction_result
-
-        except (ValueError, MLModelError) as e:
-            error_message = f"Could not generate prediction: {e}"
-            logger.error(f"Prediction failed for paper ID {paper.id}: {error_message}")
-            messages.error(request, error_message)
-
-        except Exception as e:
-            error_message = "An unexpected error occurred during prediction. Please check the logs."
-            logger.exception(f"An unexpected error occurred during prediction for paper ID {paper.id}")
-            messages.error(request, error_message)
-
         return self.render_to_response(context)

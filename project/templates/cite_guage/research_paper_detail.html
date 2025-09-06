@@ -3,120 +3,191 @@
 
 {% block custom_css %}
 <style>
-    .prediction-card {
-        background-color: rgba(45, 255, 135, 0.1); /* Greenish tint */
+    .prediction-result-card {
+        background-color: rgba(45, 255, 135, 0.15);
         border: 1px solid rgba(45, 255, 135, 0.3);
-        backdrop-filter: blur(10px);
-        color: white;
-        transition: all 0.3s ease-in-out;
-    }
-    .prediction-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(5px);
     }
     .prediction-value {
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 700;
-        color: #2dff87; /* A vibrant green */
-        text-shadow: 0 0 15px rgba(45, 255, 135, 0.5);
+        color: #2dff87;
     }
-    .ci-range {
-        font-size: 1.1rem;
-        color: rgba(255, 255, 255, 0.8);
-    }
-    .detail-label {
-        font-weight: 600;
+    .stat-label {
         color: rgba(255, 255, 255, 0.7);
-    }
-    .keyword-badge {
-        background-color: rgba(255, 255, 255, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff;
     }
 </style>
 {% endblock custom_css %}
 
 {% block main_content %}
-<div class="container mt-5 mb-5">
+<div class="container my-5">
     <div class="row">
-        <div class="col-lg-8">
-
-            <!-- Messages -->
+        <div class="col-12">
             {% if messages %}
                 {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show glass-card-messages" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endfor %}
             {% endif %}
 
-            <div class="glass-card p-4 mb-4">
-                <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="glass-card p-4 p-md-5">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-start mb-4">
                     <div>
-                        <h1 class="text-white mb-1">{{ paper.title }}</h1>
-                        <p class="text-glass-muted mb-0">
-                            <i class="fas fa-file me-1"></i> {{ paper.filename }}
+                        <h2 class="text-white mb-1">{{ paper.title }}</h2>
+                        <p class="text-glass-muted">
+                            Uploaded on {{ paper.uploaded_at|date:"F d, Y" }}
+                            {% if paper.publication_year %}| Published in {{ paper.publication_year }}{% endif %}
                         </p>
                     </div>
-                    <a href="{% url 'my_papers' %}" class="btn btn-secondary-glass flex-shrink-0 ms-3">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Papers
+                    <a href="{% url 'my_papers' %}" class="btn btn-secondary-glass d-none d-md-inline-flex">
+                        <i class="fas fa-arrow-left me-2"></i>Back to My Papers
                     </a>
                 </div>
-                <hr class="border-glass">
 
-                <div class="mb-4">
-                    <p class="detail-label">Abstract</p>
-                    <p class="text-white-80">{{ paper.abstract|default:"No abstract provided." }}</p>
+                <!-- Paper Details -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <h5 class="text-white">Abstract</h5>
+                        <p class="text-glass-muted mb-4">{{ paper.abstract|default:"No abstract available." }}</p>
+
+                        <h5 class="text-white">Authors</h5>
+                        <p class="text-glass-muted mb-4">{{ paper.authors|join:", "|default:"No authors listed." }}</p>
+
+                        <h5 class="text-white">Keywords</h5>
+                        <div class="mb-4">
+                            {% for keyword in paper.keywords %}
+                                <span class="badge badge-glass me-1 mb-1">{{ keyword }}</span>
+                            {% empty %}
+                                <p class="text-glass-muted">No keywords available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="glass-card p-3">
+                            <h5 class="text-white mb-3"><i class="fas fa-info-circle me-2"></i>File Info</h5>
+                            <ul class="list-unstyled text-white">
+                                <li><strong>Filename:</strong> {{ paper.filename }}</li>
+                                <li><strong>Type:</strong> <span class="badge bg-primary">{{ paper.file_type|upper }}</span></li>
+                                <li><strong>Size:</strong> {{ paper.get_file_size_display }}</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-4">
-                    <p class="detail-label">Keywords</p>
-                    {% if paper.keywords %}
-                        {% for keyword in paper.keywords %}
-                            <span class="badge keyword-badge p-2 me-2 mb-2">{{ keyword }}</span>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-white-80">No keywords provided.</p>
+                <hr class="border-glass my-4">
+
+                <!-- Predictions Section -->
+                <h3 class="text-white mb-4"><i class="fas fa-brain me-2"></i>Citation Predictions</h3>
+                
+                <!-- Prediction Actions -->
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <form method="post" class="me-2">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="predict_ridge" class="btn btn-primary-glass">
+                            <i class="fas fa-chart-line me-2"></i>Generate/Update Prediction (Ridge)
+                        </button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="predict_lightgbm" class="btn btn-secondary-glass">
+                            <i class="fas fa-magic me-2"></i>Generate Prediction (LightGBM)
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Prediction Results -->
+                <div class="row">
+                    <!-- Latest Ridge Prediction -->
+                    <div class="col-md-6 mb-4">
+                        <div class="glass-card h-100 p-4">
+                            <h5 class="text-white">Ridge Model Prediction</h5>
+                            {% if paper.predicted_citations is not None %}
+                                <div class="text-center prediction-result-card p-3 rounded">
+                                    <p class="stat-label mb-1">Predicted Citations (2 years)</p>
+                                    <div class="prediction-value">{{ paper.predicted_citations }}</div>
+                                    {% if latest_ridge_prediction.ci_low is not None %}
+                                        <p class="small text-white-80 mb-0">
+                                            95% CI: {{ latest_ridge_prediction.ci_low|floatformat:0 }} - {{ latest_ridge_prediction.ci_high|floatformat:0 }}
+                                        </p>
+                                    {% endif %}
+                                    <p class="text-glass-muted small mt-2">Predicted on: {{ latest_ridge_prediction.predicted_at|date:"M d, Y H:i" }}</p>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-chart-line fa-2x text-glass-muted mb-2"></i>
+                                    <p class="text-glass-muted">No prediction has been generated yet.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Latest LightGBM Prediction -->
+                    <div class="col-md-6 mb-4">
+                        <div class="glass-card h-100 p-4">
+                            <h5 class="text-white">LightGBM Model Prediction (Dummy)</h5>
+                            {% if paper.light_gbm_predicted_citations is not None %}
+                                <div class="text-center prediction-result-card p-3 rounded">
+                                    <p class="stat-label mb-1">Predicted Citations</p>
+                                    <div class="prediction-value">{{ paper.light_gbm_predicted_citations }}</div>
+                                    <p class="small text-white-80 mb-0" title="This is a randomly generated number for demonstration purposes.">
+                                        This is a simulated prediction.
+                                    <p class="text-glass-muted small mt-2">Predicted on: {{ paper.light_gbm_predicted_at|date:"M d, Y H:i" }}</p>
+                                </div>
+                                <div class="text-center py-4">
+                                    <i class="fas fa-magic fa-2x text-glass-muted mb-2"></i>
+                                    <p class="text-glass-muted">No LightGBM prediction has been generated yet.</p>
+                                    <small class="text-glass-muted">(Requires a Ridge prediction first)</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prediction History -->
+                {% if ridge_history or lightgbm_history %}
+                <div class="row mt-4">
+                    <!-- Ridge Prediction History -->
+                    {% if ridge_history %}
+                    <div class="col-md-6 mb-4">
+                        <div class="glass-card h-100 p-4">
+                            <h5 class="text-white">Past Ridge Predictions</h5>
+                            <ul class="list-unstyled small text-glass-muted mb-0">
+                                {% for pred in ridge_history %}
+                                <li class="mb-2">
+                                    <i class="fas fa-chart-line text-white-50 me-2"></i>
+                                    <strong class="text-white">{{ pred.predicted_citations }} citations</strong>
+                                    {% if pred.ci_low is not None and pred.ci_high is not None %}
+                                    (95% CI: {{ pred.ci_low|floatformat:0 }} - {{ pred.ci_high|floatformat:0 }})
+                                    {% endif %}
+                                    <br>
+                                    <small class="ms-4 text-white-50">on {{ pred.predicted_at|date:"M d, Y H:i" }}</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
                     {% endif %}
-                </div>
 
-                <div>
-                    <p class="detail-label">File Details</p>
-                    <p class="text-white-80 mb-1">
-                        <strong>Type:</strong> <span class="badge bg-primary">{{ paper.file_type|upper }}</span>
-                    </p>
-                    <p class="text-white-80">
-                        <strong>Size:</strong> {{ paper.get_file_size_display }}
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="glass-card p-4">
-                <h4 class="text-white mb-3"><i class="fas fa-brain me-2"></i>Citation Prediction</h4>
-                <p class="text-glass-muted mb-4">
-                    Use our AI model to predict the potential citation count for this paper based on its title, abstract, and keywords.
-                </p>
-
-                <!-- Prediction Form -->
-                <form method="post" action="{% url 'Research_paper_detail' paper.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-primary-glass w-100 mb-4">
-                        <i class="fas fa-magic me-2"></i>Predict Citations
-                    </button>
-                </form>
-
-                <!-- Prediction Result -->
-                {% if prediction %}
-                <div class="prediction-card p-4 rounded text-center">
-                    <p class="text-glass-muted mb-1">Predicted Citations (2 years)</p>
-                    <div class="prediction-value">{{ prediction.predicted }}</div>
-                    {% if prediction.ci_low is not None and prediction.ci_high is not None %}
-                        <p class="ci-range mb-0">
-                            95% Confidence: {{ prediction.ci_low|floatformat:0 }} - {{ prediction.ci_high|floatformat:0 }}
-                        </p>
+                    <!-- LightGBM Prediction History -->
+                    {% if lightgbm_history %}
+                    <div class="col-md-6 mb-4">
+                        <div class="glass-card h-100 p-4">
+                            <h5 class="text-white">Past LightGBM Predictions</h5>
+                            <ul class="list-unstyled small text-glass-muted mb-0">
+                                {% for pred in lightgbm_history %}
+                                <li class="mb-2">
+                                    <i class="fas fa-magic text-white-50 me-2"></i>
+                                    <strong class="text-white">{{ pred.light_gbm_predicted_citations }} citations</strong>
+                                    <br>
+                                    <small class="ms-4 text-white-50">on {{ pred.predicted_at|date:"M d, Y H:i" }}</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
                     {% endif %}
                 </div>
                 {% endif %}

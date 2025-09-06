@@ -3,7 +3,7 @@ import os
 import random
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
-from urllib.parse import urlencode
+from urllib.parse import urlencode, unquote
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import login as auth_login
@@ -11,6 +11,7 @@ from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.views import View
 from django.utils import timezone
 from core import settings
 import numpy as np
@@ -121,6 +122,27 @@ class MyPapersView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return ResearchPaper.objects.filter(user=self.request.user)
 
+class EditPaperView(LoginRequiredMixin, View):
+    """Handle updates to a research paper's category and status via POST."""
+    
+    def post(self, request, pk):
+        # Ensure the user can only edit their own paper
+        paper = get_object_or_404(ResearchPaper, pk=pk, user=request.user)
+        
+        category = request.POST.get('category')
+        status = request.POST.get('status')
+        
+        # Update fields if they were submitted in the form
+        if category is not None:
+            paper.category = category.strip()
+        
+        if status is not None:
+            paper.status = status
+            
+        paper.save(update_fields=['category', 'status'])
+        
+        messages.success(request, f'Successfully updated details for "{paper.title[:40]}...".')
+        return redirect('my_papers')
 
 
 

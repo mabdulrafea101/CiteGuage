@@ -56,8 +56,9 @@
                     <th>Title</th>
                     <th>Category</th>
                     <th>Status</th>
-                    <th>Predicted Citations</th>
+                    <th>Ridge Prediction</th>
                     <th>Confidence Interval</th>
+                    <th>LightGBM Prediction</th>
                     <th>Uploaded</th>
                     <th>Actions</th>
                   </tr>
@@ -77,7 +78,11 @@
                         {% endif %}
                       </td>
                       <td>
-                        <strong class="stat-increase">{{ paper.predicted_citations|default:"-" }}</strong>
+                        {% if paper.predicted_citations is not None %}
+                          <strong class="stat-increase">{{ paper.predicted_citations }}</strong>
+                        {% else %}
+                          Not predicted yet
+                        {% endif %}
                       </td>
                       <td>
                         {% if paper.prediction_confidence_low is not None %}
@@ -86,17 +91,22 @@
                           -
                         {% endif %}
                       </td>
+                      <td>
+                        {% if paper.light_gbm_predicted_citations is not None %}
+                          <strong class="stat-increase">{{ paper.light_gbm_predicted_citations }}</strong>
+                        {% else %}
+                          Not predicted yet
+                        {% endif %}
+                      </td>
                       <td class="text-glass-muted">{{ paper.uploaded_at|date:"M d, Y" }}</td>
                       <td>
                         <div class="btn-group">
                           <a href="{% url 'Research_paper_detail' paper.id %}" class="btn btn-sm" title="View Details">
                             <i class="text-success fas fa-eye"></i>
                           </a>
-                          {% if paper.status == 'draft' %}
-                            <a href="#" class="btn btn-sm" title="Edit Paper">
-                              <i class="text-danger fas fa-edit"></i>
-                            </a>
-                          {% endif %}
+                          <button type="button" class="btn btn-sm" title="Edit Paper" data-bs-toggle="modal" data-bs-target="#editModal{{ paper.id }}">
+                            <i class="text-danger fas fa-edit"></i>
+                          </button>
                           <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#detailsModal{{ paper.id }}" title="View Quick Stats">
                             <i class="text-info fas fa-chart-line"></i>
                           </button>
@@ -124,6 +134,40 @@
 
 <!-- Modals: Placed outside the table for correct HTML structure -->
 {% for paper in papers %}
+<!-- Edit Paper Modal -->
+<div class="modal fade" id="editModal{{ paper.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ paper.id }}" aria-hidden="true" data-bs-theme="dark">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content glass-card">
+      <form method="post" action="{% url 'edit_paper' paper.id %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title text-white" id="editModalLabel{{ paper.id }}">Edit: {{ paper.title|truncatechars:40 }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="category-{{ paper.id }}" class="form-label text-white-80">Category</label>
+            <input type="text" class="form-control form-control-glass" id="category-{{ paper.id }}" name="category" value="{{ paper.category|default:'' }}">
+          </div>
+          <div class="mb-3">
+            <label for="status-{{ paper.id }}" class="form-label text-white-80">Status</label>
+            <select class="form-select form-control-glass" id="status-{{ paper.id }}" name="status">
+              <option value="draft" {% if paper.status == 'draft' %}selected{% endif %}>Draft</option>
+              <option value="submitted" {% if paper.status == 'submitted' %}selected{% endif %}>Submitted</option>
+              <option value="under review" {% if paper.status == 'under review' %}selected{% endif %}>Under Review</option>
+              <option value="published" {% if paper.status == 'published' %}selected{% endif %}>Published</option>
+              <option value="archived" {% if paper.status == 'archived' %}selected{% endif %}>Archived</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary-glass btn-glass" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary-glass btn-glass"><i class="fas fa-save me-2"></i>Update Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="detailsModal{{ paper.id }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ paper.id }}" aria-hidden="true" data-bs-theme="dark">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content glass-card">
@@ -175,9 +219,9 @@
     $('#papersTable').DataTable({
         "pageLength": 10,
         "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
-        "order": [[ 5, "desc" ]], // Sort by 'Uploaded' column descending
+        "order": [[ 6, "desc" ]], // Sort by 'Uploaded' column descending
         "columnDefs": [
-            { "orderable": false, "targets": 6 } // Disable sorting on 'Actions' column
+            { "orderable": false, "targets": 7 } // Disable sorting on 'Actions' column
         ],
         "language": {
             "search": "", // remove search label
